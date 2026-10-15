@@ -112,7 +112,7 @@ Each source fails soft. If one can't be read, the others still show, with a one-
 ## Develop
 
 ```bash
-python3 -m unittest discover -s tests     # 18 tests, no Hermes needed
+python3 -m unittest discover -s tests     # 19 tests, no Hermes needed
 python3 hermes_inbox.py                   # runs without Hermes's CLI
 ```
 

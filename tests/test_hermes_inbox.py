@@ -131,6 +131,18 @@ class Filed(unittest.TestCase):
                 h.FILED = old
 
 
+class Root(unittest.TestCase):
+    def test_profile_home_maps_to_root(self):
+        import os
+        from unittest import mock
+        with mock.patch.dict(os.environ, {"HERMES_HOME": "/x/.hermes/profiles/ceo"}, clear=False):
+            os.environ.pop("HERMES_ROOT", None)
+            self.assertEqual(h.hermes_root(), Path("/x/.hermes"))
+        with mock.patch.dict(os.environ, {"HERMES_HOME": "/y/hh"}, clear=False):
+            os.environ.pop("HERMES_ROOT", None)
+            self.assertEqual(h.hermes_root(), Path("/y/hh"))
+
+
 class Time(unittest.TestCase):
     def test_iso_is_utc(self):
         self.assertEqual(h.iso_ts("1970-01-02T00:00:00.000Z"), 86400.0)

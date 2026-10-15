@@ -35,7 +35,18 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 HOME = Path.home()
-HERMES = Path(os.environ.get("HERMES_ROOT", HOME / ".hermes"))
+def hermes_root() -> Path:
+    """The main Hermes folder: HERMES_ROOT, else HERMES_HOME (a profile home maps back to its root), else ~/.hermes."""
+    if os.environ.get("HERMES_ROOT"):
+        return Path(os.environ["HERMES_ROOT"]).expanduser()
+    home = os.environ.get("HERMES_HOME")
+    if home:
+        p = Path(home).expanduser()
+        return p.parent.parent if p.parent.name == "profiles" else p
+    return HOME / ".hermes"
+
+
+HERMES = hermes_root()
 STATE = Path(os.environ.get("XDG_STATE_HOME", HOME / ".local" / "state")) / "hermes-inbox" / "state.json"
 HERMES_PY = HERMES / "hermes-agent" / "venv" / "bin" / "python"
 FILED = HERMES / "inbox"          # cards that Bots, crons and scripts post with `hermes inbox add`
