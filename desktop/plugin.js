@@ -125,7 +125,7 @@ const CSS = `
 .hin .scroll::-webkit-scrollbar{width:8px}.hin .scroll::-webkit-scrollbar-track{background:transparent}
 .hin .scroll::-webkit-scrollbar-thumb{background:var(--ui-stroke-tertiary,#34343b);border-radius:8px}
 .hin .lane{margin:4px 0 16px}
-.hin .lane-title{display:flex;align-items:baseline;gap:10px;margin:0 0 10px}
+.hin .lane-title{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:2px 6px 2px 0;border:0;background:transparent;color:inherit;cursor:pointer;border-radius:6px;font:inherit}.hin .lane-title:hover b{text-decoration:underline}.hin .lane-title .codicon{font-size:12px;color:var(--ui-text-tertiary,#a6a4b0)}.hin .lane.folded{margin-bottom:8px}.hin .lane.folded .lane-title{margin-bottom:0}.hin .tally span{cursor:pointer;user-select:none}.hin .tally span.off{opacity:.45;text-decoration:line-through}.hin .card{cursor:pointer;outline:none}.hin .card:focus-visible{box-shadow:0 0 0 2px var(--a)}.hin .chev{font-size:12px;color:var(--ui-text-quaternary,#6e7681);opacity:0;transition:opacity .15s}.hin .card:hover .chev,.hin .card.open .chev{opacity:1}.hin .card.open{height:auto;min-height:116px;grid-column:span 2;cursor:default;transform:none}.hin .card.open .name{-webkit-line-clamp:unset;font-size:13.5px}.hin .card.open .label{display:block;font-size:10.5px;font-weight:600;color:var(--ui-text-secondary,#b8b6c2);margin:8px 0 0}.hin .card.open .brief li span{-webkit-line-clamp:unset}.hin .card.open .foot{margin-top:10px}.hin .cmd{display:block;margin-top:8px;font:11px ${MONO};color:var(--ui-text-secondary,#b8b6c2);background:var(--ui-bg-tertiary,#0d1117);border:1px solid var(--ui-stroke-tertiary,#34343b);border-radius:6px;padding:5px 8px;overflow-wrap:anywhere;user-select:all;cursor:text}@container (max-width:520px){.hin .card.open{grid-column:auto}}
 .hin .lane-title b{font:700 12px ${MONO};letter-spacing:.08em}
 .hin .lane-title span{font-size:11.5px;color:var(--ui-text-quaternary,#6e7681)}
 .hin .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,210px),1fr));gap:10px}
@@ -144,7 +144,7 @@ const CSS = `
 .hin .foot{display:flex;align-items:center;gap:4px;margin-top:auto}
 .hin .foot button,.hin .foot a{font:11px system-ui,sans-serif;border:0;background:transparent;color:var(--ui-text-tertiary,#a6a4b0);padding:2px 5px;border-radius:6px;cursor:pointer;text-decoration:none;white-space:nowrap}
 .hin .foot button:hover,.hin .foot a:hover{background:var(--chrome-action-hover,#303038);color:var(--ui-text-primary,#eeedf2)}
-.hin .foot .go{margin-left:auto;color:var(--ui-text-primary,#eeedf2);font-weight:500}
+.hin .foot .go{margin-left:auto;color:color-mix(in srgb,var(--a) 75%,var(--ui-text-primary,#eeedf2));font-weight:600}.hin .foot .go:hover{color:var(--ui-text-primary,#eeedf2);background:color-mix(in srgb,var(--a) 22%,transparent)}.hin .foot .done{color:color-mix(in srgb,var(--ui-green,#3fb950) 80%,#888)}.hin .foot .done:hover{color:var(--ui-green,#3fb950);background:color-mix(in srgb,var(--ui-green,#3fb950) 14%,transparent)}.hin .foot .snooze{color:color-mix(in srgb,var(--ui-yellow,#d29922) 80%,#888)}.hin .foot .snooze:hover{color:var(--ui-yellow,#d29922);background:color-mix(in srgb,var(--ui-yellow,#d29922) 14%,transparent)}
 .hin .head button{font-size:12px;padding:5px 12px;border-radius:7px;border:1px solid var(--ui-stroke-tertiary,#34343b);background:var(--ui-bg-quaternary,#24242b);color:inherit;cursor:pointer}
 .hin .head button:disabled{opacity:.5;cursor:default}
 .hin .empty{grid-column:1/-1;font-size:12px;color:var(--ui-text-quaternary,#6e7681);padding:4px 0 8px}
@@ -172,51 +172,70 @@ function Go({ a }) {
     children: copied ? 'Copied ✓' : `Copy ${a.label.toLowerCase()} →` })
 }
 
-function Card({ it, color }) {
+// Folded sections are remembered per viewer (a convenience; the page works without storage).
+const FOLD_KEY = 'hermes-inbox.folded.v1'
+function loadFolded() { try { return JSON.parse(localStorage.getItem(FOLD_KEY) || '{}') } catch { return {} } }
+function saveFolded(v) { try { localStorage.setItem(FOLD_KEY, JSON.stringify(v)) } catch { /* fine */ } }
+
+function Card({ it, color, open, onToggle }) {
+  const stop = (e) => e.stopPropagation()
   return jsxs('div', {
-    className: 'card', style: { '--a': color },
+    className: `card${open ? ' open' : ''}`, style: { '--a': color }, role: 'button', tabIndex: 0, 'aria-expanded': open,
+    title: open ? 'Click to collapse' : 'Click to expand',
+    onClick: onToggle, onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle() } },
     children: [
       jsxs('div', { className: 'card-head', children: [
         jsx('span', { className: 'icon', children: jsx('i', { className: `codicon codicon-${ICON[it.source] || 'circle'}` }) }),
         jsxs('div', { style: { minWidth: 0, flex: 1 }, children: [
-          jsx('div', { className: 'name', title: it.title, children: it.title }),
+          jsx('div', { className: 'name', children: it.title }),
           jsx('div', { className: 'src', children: `${KIND[it.source] || it.source}${it.at ? ` · ${ago(it.at)} ago` : ''}` }),
         ] }),
+        jsx('i', { className: `chev codicon codicon-chevron-${open ? 'up' : 'down'}` }),
       ] }),
       jsx('div', { className: 'label', children: NEEDS[it.priority] }),
-      jsx('ul', { className: 'brief', children: jsx('li', { children: jsx('span', { title: it.detail, children: it.detail || it.action.label }) }) }),
-      jsxs('div', { className: 'foot', children: [
-        jsx('button', { type: 'button', title: 'Hide until it changes', onClick: () => clear(it, 'done'), children: 'Done' }),
-        jsx('button', { type: 'button', title: 'Hide for a day', onClick: () => clear(it, 'snooze', 24), children: 'Snooze' }),
+      jsx('ul', { className: 'brief', children: jsx('li', { children: jsx('span', { children: it.detail || it.action.label }) }) }),
+      open ? jsx('code', { className: 'cmd', onClick: stop, children: it.action.value }) : null,
+      jsxs('div', { className: 'foot', onClick: stop, children: [
+        jsx('button', { type: 'button', className: 'done', title: 'Hide until it changes', onClick: () => clear(it, 'done'), children: '✓ Done' }),
+        jsx('button', { type: 'button', className: 'snooze', title: 'Hide for a day', onClick: () => clear(it, 'snooze', 24), children: '◷ Snooze' }),
+        open ? jsx('button', { type: 'button', className: 'snooze', title: 'Hide for a week', onClick: () => clear(it, 'snooze', 168), children: '1 week' }) : null,
         jsx(Go, { a: it.action }),
       ] }),
     ],
   })
 }
 
-function Lane({ lane, items }) {
-  return jsxs('section', { className: 'lane', children: [
-    jsxs('div', { className: 'lane-title', children: [
+function Lane({ lane, items, folded, onFold, openId, setOpenId }) {
+  return jsxs('section', { className: `lane${folded ? ' folded' : ''}`, children: [
+    jsxs('button', { type: 'button', className: 'lane-title', 'aria-expanded': !folded, onClick: onFold, children: [
+      jsx('i', { className: `codicon codicon-chevron-${folded ? 'right' : 'down'}` }),
       jsx('b', { style: { color: items.length ? lane.color : C.t4 }, children: `${lane.label.toUpperCase()} · ${items.length}` }),
       jsx('span', { children: lane.hint }),
     ] }),
-    jsx('div', { className: 'grid', children: items.length ? items.map((it) => jsx(Card, { it, color: lane.color }, it.id))
+    folded ? null : jsx('div', { className: 'grid', children: items.length
+      ? items.map((it) => jsx(Card, { it, color: lane.color, open: openId === it.id, onToggle: () => setOpenId(openId === it.id ? null : it.id) }, it.id))
       : jsx('div', { className: 'empty', children: 'Nothing here.' }) }),
   ] })
 }
 
 function InboxPage() {
   const s = useInbox()
+  const [folded, setFolded] = useState(loadFolded)
+  const [openId, setOpenId] = useState(null)
+  const fold = (key) => { const next = { ...folded, [key]: !folded[key] }; setFolded(next); saveFolded(next) }
+  const allFolded = LANES.every((l) => folded[l.key])
+  const foldAll = () => { const next = Object.fromEntries(LANES.map((l) => [l.key, !allFolded])); setFolded(next); saveFolded(next) }
   const d = s.data
   const items = shown(s)
   const head = jsxs('div', { className: 'head', children: [
     jsx('h1', { children: 'Inbox' }),
     jsx('span', { className: 'sub', children: 'everything your Bots and tools are waiting on you for' }),
     jsx('span', { className: 'meta', children: d ? `${d.hidden ? `${d.hidden} done/snoozed · ` : ''}checked ${new Date(s.at).toLocaleTimeString()}` : s.error ? '' : 'checking Bots, crons, keys, PRs…' }),
+    d ? jsx('button', { type: 'button', onClick: foldAll, children: allFolded ? 'Expand all' : 'Collapse all' }) : null,
     jsx('button', { type: 'button', onClick: () => refresh(), disabled: Boolean(s.inflight), children: s.inflight ? 'Checking…' : 'Check now' }),
     d ? jsx('div', { className: 'tally', children: LANES.map((l) => {
       const n = items.filter((i) => i.priority === l.key).length
-      return jsx('span', { className: n ? 'on' : '', style: { '--t': l.color }, children: `${n} ${l.label.toLowerCase()}` }, l.key)
+      return jsx('span', { className: `${n ? 'on' : ''}${folded[l.key] ? ' off' : ''}`, style: { '--t': l.color }, title: folded[l.key] ? 'Show this section' : 'Fold this section', onClick: () => fold(l.key), children: `${n} ${l.label.toLowerCase()}` }, l.key)
     }) }) : null,
   ] })
   const errs = d ? Object.entries(d.errors || {}) : []
@@ -227,7 +246,7 @@ function InboxPage() {
       ? (s.error ? jsx('div', { style: { color: C.red, fontSize: 12.5 }, children: `Could not read the inbox: ${s.error}. Is the hermes-inbox plugin switched on (Settings → Plugins)?` }) : null)
       : [
         items.length ? null : jsx('div', { className: 'zero', children: 'Inbox zero. No Bot is waiting on you.' }, 'zero'),
-        ...LANES.map((lane) => jsx(Lane, { lane, items: items.filter((i) => i.priority === lane.key) }, lane.key)),
+        ...LANES.map((lane) => jsx(Lane, { lane, items: items.filter((i) => i.priority === lane.key), folded: Boolean(folded[lane.key]), onFold: () => fold(lane.key), openId, setOpenId }, lane.key)),
         errs.length ? jsx('div', { className: 'warn', children: `Couldn't read: ${errs.map(([k, v]) => `${k} (${v})`).join(' · ')}` }, 'errs') : null,
         jsx('div', { className: 'note', children: 'Chats show only the title and how they ended, never the messages. Done hides a card until it changes; Snooze hides it for a day.' }, 'note'),
       ] }),
