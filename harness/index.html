@@ -16,7 +16,7 @@ import { createRoot } from 'react-dom/client'
 import { jsx } from 'react/jsx-runtime'
 import plugin from '../desktop/plugin.js'
 const reg = []
-const ctx = { register: (c) => { reg.push(c); return () => {} }, setInterval: (f, ms) => { const t = setInterval(f, ms); return () => clearInterval(t) },
+const ctx = { os: { openExternal: async (u) => { window.__opened_url = u; return true } }, register: (c) => { reg.push(c); return () => {} }, setInterval: (f, ms) => { const t = setInterval(f, ms); return () => clearInterval(t) },
   addEventListener: (t, e, f) => { t.addEventListener(e, f); return () => t.removeEventListener(e, f) } }
 plugin.register(ctx)
 window.__registered = reg.map((c) => ({ id: c.id, area: c.area, data: c.data && { path: c.data.path, label: c.data.label } }))

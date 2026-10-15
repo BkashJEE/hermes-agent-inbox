@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2 — 2026-10-15
+
+- **Links work in Hermes Desktop.** "Open PR" and "Open X Studio" now open through the Desktop's OS link handler (`ctx.os.openExternal`); the Desktop blocks ordinary new-window links from plugins, so they did nothing before.
+- **The All tab shows one block per agent** (Hermes inbox, Claude inbox, Codex inbox, X Studio), each with its own Now / Today / Later, instead of one mixed list. Click a block's title to open that agent's tab.
+
 ## 0.3.1 — 2026-10-15
 
 - **Always talk to the local gateway.** The page used to send `hermes inbox` to whichever gateway owned the focused chat; with a remote connection focused (a laptop), that machine answered "'inbox' is not a hermes command". The Inbox is about this machine, so it now always uses the local route.

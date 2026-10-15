@@ -48,6 +48,17 @@ async function runInbox(args) {
 }
 
 // One shared poller so the page and the status chip never double-fetch.
+// Links: the Desktop denies every new-window open from a plugin, so URLs go through the OS
+// handler the SDK provides (ctx.os.openExternal); outside the Desktop (the harness) a plain open.
+let os = null
+function openLink(url) {
+  if (os && typeof os.openExternal === 'function') {
+    os.openExternal(url).then((ok) => { if (!ok) host.notify?.({ kind: 'error', message: `Couldn't open ${url}` }) })
+  } else {
+    window.open(url, '_blank', 'noopener')
+  }
+}
+
 const store = { data: null, error: null, at: 0, listeners: new Set(), inflight: null, cleared: new Set() }
 function notify() { store.listeners.forEach((fn) => fn()) }
 function refresh() {
@@ -120,7 +131,7 @@ const CSS = `
 .hin h1{font-size:22px;letter-spacing:-.5px;font-weight:600;margin:0}
 .hin .sub{font-size:12px;color:var(--ui-text-tertiary,#a6a4b0)}
 .hin .meta{margin-left:auto;font:11px ${MONO};color:var(--ui-text-tertiary,#a6a4b0)}
-.hin .tabs{display:flex;gap:4px;width:100%;margin:2px 0 -2px;border-bottom:1px solid var(--ui-stroke-tertiary,#34343b)}.hin .head .tab{font:13px system-ui,sans-serif;padding:7px 12px;border:0;border-radius:0;background:transparent;color:var(--ui-text-tertiary,#a6a4b0);cursor:pointer;display:flex;gap:7px;align-items:center}.hin .tab span{font:11px ${MONO};padding:0 6px;border-radius:999px;background:var(--ui-bg-quaternary,#24242b);color:var(--ui-text-secondary,#b8b6c2)}.hin .head .tab:hover{color:var(--ui-text-primary,#eeedf2)}.hin .head .tab.on{color:var(--ui-text-primary,#eeedf2);box-shadow:0 2px 0 var(--ui-accent,#4a84fe)}.hin .tab.on span{background:color-mix(in srgb,var(--ui-accent,#4a84fe) 25%,transparent);color:var(--ui-text-primary,#eeedf2)}.hin .switches{margin-left:auto;display:flex;align-items:center;gap:6px;padding-bottom:4px}.hin .sw-label{font-size:11px;color:var(--ui-text-quaternary,#6e7681);margin-right:2px}.hin .head .sw{display:flex;align-items:center;gap:6px;font:12px system-ui,sans-serif;padding:3px 9px 3px 4px;border-radius:999px;border:1px solid var(--ui-stroke-tertiary,#34343b);background:transparent;color:var(--ui-text-tertiary,#a6a4b0);cursor:pointer}.hin .sw .knob{width:22px;height:12px;border-radius:999px;background:var(--ui-bg-quaternary,#24242b);position:relative;transition:background .15s}.hin .sw .knob:after{content:'';position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:var(--ui-text-quaternary,#6e7681);transition:transform .15s,background .15s}.hin .head .sw.on{color:var(--ui-text-primary,#eeedf2);border-color:color-mix(in srgb,var(--ui-accent,#4a84fe) 50%,transparent)}.hin .sw.on .knob{background:color-mix(in srgb,var(--ui-accent,#4a84fe) 45%,transparent)}.hin .sw.on .knob:after{transform:translateX(10px);background:#fff}.hin .tally{display:flex;gap:8px;width:100%}
+.hin .tabs{display:flex;gap:4px;width:100%;margin:2px 0 -2px;border-bottom:1px solid var(--ui-stroke-tertiary,#34343b)}.hin .head .tab{font:13px system-ui,sans-serif;padding:7px 12px;border:0;border-radius:0;background:transparent;color:var(--ui-text-tertiary,#a6a4b0);cursor:pointer;display:flex;gap:7px;align-items:center}.hin .tab span{font:11px ${MONO};padding:0 6px;border-radius:999px;background:var(--ui-bg-quaternary,#24242b);color:var(--ui-text-secondary,#b8b6c2)}.hin .head .tab:hover{color:var(--ui-text-primary,#eeedf2)}.hin .head .tab.on{color:var(--ui-text-primary,#eeedf2);box-shadow:0 2px 0 var(--ui-accent,#4a84fe)}.hin .tab.on span{background:color-mix(in srgb,var(--ui-accent,#4a84fe) 25%,transparent);color:var(--ui-text-primary,#eeedf2)}.hin .switches{margin-left:auto;display:flex;align-items:center;gap:6px;padding-bottom:4px}.hin .sw-label{font-size:11px;color:var(--ui-text-quaternary,#6e7681);margin-right:2px}.hin .head .sw{display:flex;align-items:center;gap:6px;font:12px system-ui,sans-serif;padding:3px 9px 3px 4px;border-radius:999px;border:1px solid var(--ui-stroke-tertiary,#34343b);background:transparent;color:var(--ui-text-tertiary,#a6a4b0);cursor:pointer}.hin .sw .knob{width:22px;height:12px;border-radius:999px;background:var(--ui-bg-quaternary,#24242b);position:relative;transition:background .15s}.hin .sw .knob:after{content:'';position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:var(--ui-text-quaternary,#6e7681);transition:transform .15s,background .15s}.hin .head .sw.on{color:var(--ui-text-primary,#eeedf2);border-color:color-mix(in srgb,var(--ui-accent,#4a84fe) 50%,transparent)}.hin .sw.on .knob{background:color-mix(in srgb,var(--ui-accent,#4a84fe) 45%,transparent)}.hin .sw.on .knob:after{transform:translateX(10px);background:#fff}.hin .app-group{margin:0 0 18px;padding:10px 14px 2px;border:1px solid var(--ui-stroke-quaternary,#2c2b34);border-radius:12px;background:color-mix(in srgb,var(--ui-bg-elevated,#010409) 60%,transparent)}.hin .head .app-title,.hin .app-title{display:flex;align-items:center;gap:9px;margin:0 0 10px;padding:2px 4px;border:0;background:transparent;color:var(--ui-text-primary,#eeedf2);cursor:pointer;font:inherit;border-radius:6px}.hin .app-title b{font-size:14px;letter-spacing:-.2px}.hin .app-title .codicon{font-size:15px;color:var(--ui-accent,#4a84fe)}.hin .app-title span{font:11px ${MONO};padding:0 7px;border-radius:999px;background:var(--ui-bg-quaternary,#24242b);color:var(--ui-text-secondary,#b8b6c2)}.hin .app-title .go-arrow{font-size:12px;color:var(--ui-text-quaternary,#6e7681);opacity:0;transition:opacity .15s}.hin .app-title:hover .go-arrow{opacity:1}.hin .app-group .lane{margin:2px 0 12px}.hin .app-group .lane-title{margin-bottom:8px}.hin .tally{display:flex;gap:8px;width:100%}
 .hin .tally span{font:600 11px ${MONO};letter-spacing:.06em;padding:3px 9px;border-radius:999px;border:1px solid var(--ui-stroke-tertiary,#34343b);color:var(--ui-text-quaternary,#6e7681)}
 .hin .tally .on{color:var(--t);border-color:color-mix(in srgb,var(--t) 55%,transparent);background:color-mix(in srgb,var(--t) 10%,transparent)}
 .hin .scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-gutter:stable;padding:18px clamp(20px,3vw,40px) 32px}
@@ -163,6 +174,7 @@ const loadTab = () => { try { return localStorage.getItem(TAB_KEY) || 'hermes' }
 const saveTab = (t) => { try { localStorage.setItem(TAB_KEY, t) } catch { /* fine */ } }
 const appOf = (it) => it.app || 'hermes'
 // Other agent apps are off until switched on here; the choice is saved in ~/.hermes/inbox.json.
+const APP_ICON = { hermes: 'hubot', claude: 'sparkle', codex: 'terminal', xstudio: 'eye' }
 const SWITCHES = [['claude', 'Claude Code'], ['codex', 'Codex (ChatGPT)']]
 async function flipSource(name, on) {
   if (store.data) store.data = { ...store.data, switches: { ...(store.data.switches || {}), [name]: on } }
@@ -188,7 +200,7 @@ function Go({ a }) {
         .catch((e) => host.notify?.({ kind: 'error', message: String((e && e.message) || e) })),
       children: label })
   }
-  if (a.kind === 'url') return jsx('a', { className: 'go', href: a.value, target: '_blank', rel: 'noreferrer', children: label })
+  if (a.kind === 'url') return jsx('a', { className: 'go', href: a.value, rel: 'noreferrer', onClick: (e) => { e.preventDefault(); openLink(a.value) }, children: label })
   if (a.kind === 'open' || /^\/[a-z-]+$/.test(a.value)) return jsx('button', { type: 'button', className: 'go', onClick: () => host.navigate(a.value), children: label })
   return jsx('button', { type: 'button', className: 'go', title: a.value,
     onClick: () => navigator.clipboard?.writeText(a.value).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }),
@@ -294,7 +306,14 @@ function InboxPage() {
       ? (s.error ? jsx('div', { style: { color: C.red, fontSize: 12.5 }, children: `Could not read the inbox: ${s.error}. Is the hermes-agent-inbox plugin switched on (Settings → Plugins)?` }) : null)
       : [
         items.length ? null : jsx('div', { className: 'zero', children: 'Inbox zero. No Bot is waiting on you.' }, 'zero'),
-        ...LANES.map((lane) => jsx(Lane, { lane, items: items.filter((i) => i.priority === lane.key), folded: Boolean(folded[lane.key]), onFold: () => fold(lane.key), openId, setOpenId }, lane.key)),
+        ...(current === 'all'
+          // All: one block per agent, so each inbox stays its own thing even side by side.
+          ? tabs.filter(([t]) => t !== 'all' && tabCount(t) > 0).map(([t, label]) => jsxs('section', { className: 'app-group', key: t, children: [
+            jsxs('button', { type: 'button', className: 'app-title', onClick: () => setTab(t), title: `Open the ${label} inbox`, children: [
+              jsx('i', { className: `codicon codicon-${APP_ICON[t] || 'inbox'}` }), jsx('b', { children: `${label} inbox` }), jsx('span', { children: tabCount(t) }), jsx('i', { className: 'codicon codicon-arrow-right go-arrow' })] }),
+            ...LANES.map((lane) => jsx(Lane, { lane, items: all.filter((i) => appOf(i) === t && i.priority === lane.key), folded: Boolean(folded[lane.key]), onFold: () => fold(lane.key), openId, setOpenId }, lane.key)),
+          ] }))
+          : LANES.map((lane) => jsx(Lane, { lane, items: items.filter((i) => i.priority === lane.key), folded: Boolean(folded[lane.key]), onFold: () => fold(lane.key), openId, setOpenId }, lane.key))),
         errs.length ? jsx('div', { className: 'warn', children: `Couldn't read: ${errs.map(([k, v]) => `${k} (${v})`).join(' · ')}` }, 'errs') : null,
         jsx('div', { className: 'note', children: 'Chats show only the title and how they ended, never the messages. Done hides a card until it changes; Snooze hides it for a day.' }, 'note'),
       ] }),
@@ -318,6 +337,7 @@ export default {
   id: ID,
   name: 'Inbox',
   register(ctx) {
+    os = ctx.os || null
     ctx.register({ id: 'page', area: ROUTES_AREA, data: { path: ROUTE }, render: () => jsx(InboxPage, {}) })
     ctx.register({ id: 'nav', area: SIDEBAR_NAV_AREA, order: 86, data: { path: ROUTE, label: 'Inbox', codicon: 'inbox' } })
     ctx.register({ id: 'open', area: PALETTE_AREA, data: { id: `${ID}.open`, label: 'Open Inbox', keywords: ['inbox', 'waiting', 'approval', 'stuck', 'todo', 'review'], run: () => host.navigate(ROUTE) } })
