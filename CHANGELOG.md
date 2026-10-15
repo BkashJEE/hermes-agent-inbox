@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0 — 2026-10-15
+
+- **Claude Code and Codex sources** (opt-in with `"sources": {"claude": true, "codex": true}`): a session whose last message is the assistant's and ends stuck, on a question, or asking you to check something shows up, with a copyable resume command.
+- **Tabs** split the page by app: All · Hermes · Claude · Codex · GitHub · X Studio.
+- **Every card names who needs you:** the Bot on the card line, and a Bot / Agent row when it's expanded.
+- **Fewer false alarms.** Only the closing part of a reply decides how it ended, so a long report that merely mentions a login is no longer "needs sign-in".
+- **New ending, "asked you to check":** replies like "please check…" or "after you approve…".
+
 ## 0.1.0 — 2026-10-15
 
 First release.

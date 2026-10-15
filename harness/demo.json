@@ -40,7 +40,9 @@
     "value": "hermes -p scout chat --resume s1",
     "session": "s1",
     "profile": "scout"
-   }
+   },
+   "app": "hermes",
+   "agent": "Scout"
   },
   {
    "id": "cron:default:backup",
@@ -68,7 +70,9 @@
     "kind": "command",
     "label": "Runs",
     "value": "hermes -p default cron runs backup"
-   }
+   },
+   "app": "hermes",
+   "agent": "Atlas"
   },
   {
    "id": "keys:openrouter:a1:benched",
@@ -81,7 +85,9 @@
     "kind": "command",
     "label": "Copy fix",
     "value": "hermes -p atlas auth reset openrouter a1"
-   }
+   },
+   "app": "hermes",
+   "agent": "atlas +2"
   },
   {
    "id": "vitals:ledger:vision",
@@ -109,6 +115,68 @@
     "kind": "open",
     "label": "Vitals",
     "value": "/vitals"
+   },
+   "app": "hermes",
+   "agent": "Ledger"
+  },
+  {
+   "id": "claude:c1",
+   "source": "claude",
+   "app": "claude",
+   "priority": "today",
+   "title": "Claude asked you a question",
+   "detail": "\u201cRefactor the billing worker\u201d",
+   "ago": 3000,
+   "agent": "Claude Code",
+   "why": "It ended on a question and nobody has replied since.",
+   "facts": [
+    [
+     "Session",
+     "Refactor the billing worker"
+    ],
+    [
+     "Folder",
+     "~/code/billing"
+    ],
+    [
+     "Last active",
+     "Oct 15 09:40"
+    ]
+   ],
+   "action": {
+    "kind": "command",
+    "label": "Resume",
+    "value": "cd ~/code/billing && claude --resume c1"
+   }
+  },
+  {
+   "id": "codex:x1",
+   "source": "codex",
+   "app": "codex",
+   "priority": "today",
+   "title": "Codex asked you to check",
+   "detail": "\u201cRelease notes for 2.4\u201d",
+   "ago": 7200,
+   "agent": "Codex",
+   "why": "It ended by asking you to check, confirm or approve something.",
+   "facts": [
+    [
+     "Session",
+     "Release notes for 2.4"
+    ],
+    [
+     "Folder",
+     "~/code/app"
+    ],
+    [
+     "Last active",
+     "Oct 15 08:31"
+    ]
+   ],
+   "action": {
+    "kind": "command",
+    "label": "Resume",
+    "value": "cd ~/code/app && codex resume x1"
    }
   },
   {
@@ -134,7 +202,9 @@
     "kind": "url",
     "label": "Open",
     "value": "https://example.com/thumbnails"
-   }
+   },
+   "app": "hermes",
+   "agent": "Scribe"
   },
   {
    "id": "session:atlas:s2",
@@ -164,7 +234,9 @@
     "value": "hermes -p atlas chat --resume s2",
     "session": "s2",
     "profile": "atlas"
-   }
+   },
+   "app": "hermes",
+   "agent": "Atlas"
   },
   {
    "id": "filed:newsletter",
@@ -179,7 +251,9 @@
     "kind": "url",
     "label": "Open",
     "value": "https://example.com/newsletter/3"
-   }
+   },
+   "app": "hermes",
+   "agent": "Scribe"
   },
   {
    "id": "session:ledger:s3",
@@ -201,7 +275,9 @@
     "value": "hermes -p ledger chat --resume s3",
     "session": "s3",
     "profile": "ledger"
-   }
+   },
+   "app": "hermes",
+   "agent": "Ledger"
   },
   {
    "id": "pr:acme/hermes-weather#12",
@@ -232,7 +308,8 @@
     "kind": "url",
     "label": "Open PR",
     "value": "https://github.com/acme/hermes-weather/pull/12"
-   }
+   },
+   "app": "github"
   },
   {
    "id": "pr:acme/agent-dashboard#48",
@@ -263,7 +340,8 @@
     "kind": "url",
     "label": "Open PR",
     "value": "https://github.com/acme/agent-dashboard/pull/48"
-   }
+   },
+   "app": "github"
   },
   {
    "id": "pr:acme/hermes-weather#9",
@@ -294,7 +372,8 @@
     "kind": "url",
     "label": "Open PR",
     "value": "https://github.com/acme/hermes-weather/pull/9"
-   }
+   },
+   "app": "github"
   },
   {
    "id": "pr:acme/notes-sync#4",
@@ -325,7 +404,8 @@
     "kind": "url",
     "label": "Open PR",
     "value": "https://github.com/acme/notes-sync/pull/4"
-   }
+   },
+   "app": "github"
   },
   {
    "id": "pr:acme/old-experiment#2",
@@ -356,7 +436,8 @@
     "kind": "url",
     "label": "Open PR",
     "value": "https://github.com/acme/old-experiment/pull/2"
-   }
+   },
+   "app": "github"
   },
   {
    "id": "pr:acme/agent-dashboard#31",
@@ -387,7 +468,8 @@
     "kind": "url",
     "label": "Open PR",
     "value": "https://github.com/acme/agent-dashboard/pull/31"
-   }
+   },
+   "app": "github"
   }
  ],
  "counts": {},

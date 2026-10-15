@@ -118,7 +118,7 @@ const CSS = `
 .hin h1{font-size:22px;letter-spacing:-.5px;font-weight:600;margin:0}
 .hin .sub{font-size:12px;color:var(--ui-text-tertiary,#a6a4b0)}
 .hin .meta{margin-left:auto;font:11px ${MONO};color:var(--ui-text-tertiary,#a6a4b0)}
-.hin .tally{display:flex;gap:8px;width:100%}
+.hin .tabs{display:flex;gap:4px;width:100%;margin:2px 0 -2px;border-bottom:1px solid var(--ui-stroke-tertiary,#34343b)}.hin .head .tab{font:13px system-ui,sans-serif;padding:7px 12px;border:0;border-radius:0;background:transparent;color:var(--ui-text-tertiary,#a6a4b0);cursor:pointer;display:flex;gap:7px;align-items:center}.hin .tab span{font:11px ${MONO};padding:0 6px;border-radius:999px;background:var(--ui-bg-quaternary,#24242b);color:var(--ui-text-secondary,#b8b6c2)}.hin .head .tab:hover{color:var(--ui-text-primary,#eeedf2)}.hin .head .tab.on{color:var(--ui-text-primary,#eeedf2);box-shadow:0 2px 0 var(--ui-accent,#4a84fe)}.hin .tab.on span{background:color-mix(in srgb,var(--ui-accent,#4a84fe) 25%,transparent);color:var(--ui-text-primary,#eeedf2)}.hin .tally{display:flex;gap:8px;width:100%}
 .hin .tally span{font:600 11px ${MONO};letter-spacing:.06em;padding:3px 9px;border-radius:999px;border:1px solid var(--ui-stroke-tertiary,#34343b);color:var(--ui-text-quaternary,#6e7681)}
 .hin .tally .on{color:var(--t);border-color:color-mix(in srgb,var(--t) 55%,transparent);background:color-mix(in srgb,var(--t) 10%,transparent)}
 .hin .scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-gutter:stable;padding:18px clamp(20px,3vw,40px) 32px}
@@ -152,8 +152,20 @@ const CSS = `
 .hin .note{font-size:11px;color:var(--ui-text-quaternary,#6e7681);line-height:1.6}
 .hin .warn{font-size:11.5px;color:var(--ui-orange,#ffa657);margin-bottom:10px}
 `
-const ICON = { filed: 'mail', keys: 'key', vitals: 'pulse', sessions: 'comment-discussion', crons: 'clock', prs: 'git-pull-request', review: 'eye' }
-const KIND = { filed: 'Posted', keys: 'Key Doctor', vitals: 'Vitals', sessions: 'Bot chat', crons: 'Cron job', prs: 'Pull request', review: 'X Studio' }
+const ICON = { claude: 'sparkle', codex: 'terminal', filed: 'mail', keys: 'key', vitals: 'pulse', sessions: 'comment-discussion', crons: 'clock', prs: 'git-pull-request', review: 'eye' }
+const KIND = { claude: 'Claude Code', codex: 'Codex', filed: 'Posted', keys: 'Key Doctor', vitals: 'Vitals', sessions: 'Bot chat', crons: 'Cron job', prs: 'Pull request', review: 'X Studio' }
+// Tabs: one per app that has something waiting. The status-bar chip always counts every tab.
+const TABS = [['all', 'All'], ['hermes', 'Hermes'], ['claude', 'Claude'], ['codex', 'Codex'], ['github', 'GitHub'], ['xstudio', 'X Studio']]
+const TAB_KEY = 'hermes-inbox.tab.v1'
+const loadTab = () => { try { return localStorage.getItem(TAB_KEY) || 'all' } catch { return 'all' } }
+const saveTab = (t) => { try { localStorage.setItem(TAB_KEY, t) } catch { /* fine */ } }
+const appOf = (it) => it.app || 'hermes'
+// Who needs you: the Bot (or the app, for Claude Code and Codex).
+function agentFacts(it) {
+  const facts = it.facts || []
+  if (!it.agent || facts.some(([k]) => k === 'Bot' || k === 'Agent')) return facts
+  return [[it.app === 'claude' || it.app === 'codex' ? 'Agent' : 'Bot', it.agent], ...facts]
+}
 const NEEDS = { now: 'What it needs', today: 'What it needs', later: 'When you can' }
 
 function Go({ a }) {
@@ -189,21 +201,20 @@ function Card({ it, color, open, onToggle }) {
   const stop = (e) => e.stopPropagation()
   return jsxs('div', {
     className: `card${open ? ' open' : ''}`, style: { '--a': color }, role: 'button', tabIndex: 0, 'aria-expanded': open,
-    title: open ? 'Click to collapse' : 'Click to expand',
     onClick: onToggle, onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle() } },
     children: [
       jsxs('div', { className: 'card-head', children: [
         jsx('span', { className: 'icon', children: jsx('i', { className: `codicon codicon-${ICON[it.source] || 'circle'}` }) }),
         jsxs('div', { style: { minWidth: 0, flex: 1 }, children: [
           jsx('div', { className: 'name', children: it.title }),
-          jsx('div', { className: 'src', children: `${it.from ? `From ${it.from}` : KIND[it.source] || it.source}${it.at ? ` · ${ago(it.at)} ago` : ''}` }),
+          jsx('div', { className: 'src', children: [KIND[it.source] || it.source, it.agent && it.agent !== KIND[it.source] ? it.agent : null, it.at ? `${ago(it.at)} ago` : null].filter(Boolean).join(' · ') }),
         ] }),
         jsx('i', { className: `chev codicon codicon-chevron-${open ? 'up' : 'down'}` }),
       ] }),
       jsx('div', { className: 'label', children: NEEDS[it.priority] }),
       jsx('ul', { className: 'brief', children: jsx('li', { children: jsx('span', { children: it.detail || it.why || it.action.label }) }) }),
       open && it.why ? jsx('div', { className: 'why', children: it.why }) : null,
-      open && (it.facts || []).length ? jsx('dl', { className: 'facts', children: it.facts.filter(([, v]) => v).flatMap(([k, v]) => [jsx('dt', { children: k }, `${k}-k`), jsx('dd', { title: v, children: v }, `${k}-v`)]) }) : null,
+      open && agentFacts(it).length ? jsx('dl', { className: 'facts', children: agentFacts(it).filter(([, v]) => v).flatMap(([k, v]) => [jsx('dt', { children: k }, `${k}-k`), jsx('dd', { title: v, children: v }, `${k}-v`)]) }) : null,
       open && it.action.kind === 'command' ? jsx('code', { className: 'cmd', onClick: stop, children: it.action.value }) : null,
       open && (it.more || []).length ? jsx('div', { className: 'more', onClick: stop, children: it.more.map((m) => jsx(CopyBtn, { m }, m.label)) }) : null,
       jsxs('div', { className: 'foot', onClick: stop, children: [
@@ -233,17 +244,26 @@ function InboxPage() {
   const s = useInbox()
   const [folded, setFolded] = useState(loadFolded)
   const [openId, setOpenId] = useState(null)
+  const [tab, setTabState] = useState(loadTab)
+  const setTab = (t) => { setTabState(t); saveTab(t) }
   const fold = (key) => { const next = { ...folded, [key]: !folded[key] }; setFolded(next); saveFolded(next) }
   const allFolded = LANES.every((l) => folded[l.key])
   const foldAll = () => { const next = Object.fromEntries(LANES.map((l) => [l.key, !allFolded])); setFolded(next); saveFolded(next) }
   const d = s.data
-  const items = shown(s)
+  const all = shown(s)
+  const tabCount = (t) => (t === 'all' ? all.length : all.filter((i) => appOf(i) === t).length)
+  const tabs = TABS.filter(([t]) => t === 'all' || tabCount(t) > 0)
+  const current = tabs.some(([t]) => t === tab) ? tab : 'all'
+  const items = current === 'all' ? all : all.filter((i) => appOf(i) === current)
   const head = jsxs('div', { className: 'head', children: [
     jsx('h1', { children: 'Inbox' }),
     jsx('span', { className: 'sub', children: 'everything your Bots and tools are waiting on you for' }),
     jsx('span', { className: 'meta', children: d ? `${d.hidden ? `${d.hidden} done/snoozed · ` : ''}checked ${new Date(s.at).toLocaleTimeString()}` : s.error ? '' : 'checking Bots, crons, keys, PRs…' }),
     d ? jsx('button', { type: 'button', onClick: foldAll, children: allFolded ? 'Expand all' : 'Collapse all' }) : null,
     jsx('button', { type: 'button', onClick: () => refresh(), disabled: Boolean(s.inflight), children: s.inflight ? 'Checking…' : 'Check now' }),
+    d ? jsx('div', { className: 'tabs', role: 'tablist', children: tabs.map(([t, label]) => jsxs('button', {
+      type: 'button', role: 'tab', 'aria-selected': current === t, className: current === t ? 'tab on' : 'tab', onClick: () => setTab(t),
+      children: [label, jsx('span', { children: tabCount(t) })] }, t)) }) : null,
     d ? jsx('div', { className: 'tally', children: LANES.map((l) => {
       const n = items.filter((i) => i.priority === l.key).length
       return jsx('span', { className: `${n ? 'on' : ''}${folded[l.key] ? ' off' : ''}`, style: { '--t': l.color }, title: folded[l.key] ? 'Show this section' : 'Fold this section', onClick: () => fold(l.key), children: `${n} ${l.label.toLowerCase()}` }, l.key)

@@ -70,6 +70,7 @@ ENDINGS = [
     ("a site refused it", r"\b(can.t provide a secure connection|connection (refused|reset)|rate limit(ed)?|http 4(03|29))\b"),
     ("screen problem", r"\b(no active window|display (is )?not reachable|capture failed)\b"),
     ("asked you a question", r"\?\s*$"),
+    ("asked you to check", r"\b(please (check|confirm|review|approve|test|try)|after you (approve|check|confirm)|once you (approve|confirm|check)|let me know|your call|waiting for your (ok|go-ahead|answer))\b"),
 ]
 STUCK = {"needs sign-in", "waiting on your approval", "missing a tool", "hit a limit", "a site refused it", "screen problem"}
 
@@ -101,12 +102,16 @@ WHY = {
     "a site refused it": "A site refused or rate-limited it.",
     "screen problem": "It couldn't see or reach the screen.",
     "asked you a question": "It ended on a question and you haven't opened the chat since.",
+    "asked you to check": "It ended by asking you to check, confirm or approve something.",
 }
 
 
 def ending(text: str) -> str:
+    """How a reply ends. Only its closing part counts: a long answer that merely mentions a login or a
+    rate limit somewhere in the middle is not stuck."""
+    tail = (text or "").strip()[-500:]
     for name, pattern in ENDINGS:
-        if re.search(pattern, text or "", re.I | re.M):
+        if re.search(pattern, tail, re.I | re.M):
             return name
     return "done"
 
@@ -117,15 +122,15 @@ def session_item(profile: str, bot: str, s: dict, last_reply: str, now: float) -
     unread = (s.get("last_read_at") or 0) < (s.get("last_activity_at") or 0)
     if kind in STUCK:
         priority = "now" if kind in ("waiting on your approval", "needs sign-in") else "today"
-    elif kind == "asked you a question" and unread:
+    elif kind in ("asked you a question", "asked you to check") and unread:
         priority = "today"
     else:
         return None
     title = (s.get("title") or "Untitled session").strip()[:90]
     return {"id": f"session:{profile}:{s['id']}", "source": "sessions", "priority": priority,
             "title": f"{bot} {kind}", "detail": f"“{title}”", "at": s.get("last_activity_at") or now,
-            "why": WHY.get(kind, ""),
-            "facts": [["Bot", f"{bot} ({profile})"], ["Last active", when(s.get("last_activity_at") or 0)],
+            "why": WHY.get(kind, ""), "agent": bot, "app": "hermes",
+            "facts": [["Bot", f"{bot} ({profile})"], ["Session", title], ["Last active", when(s.get("last_activity_at") or 0)],
                       ["Opened by you", when(s["last_read_at"]) if s.get("last_read_at") else "never"]],
             "more": [{"kind": "command", "label": "Copy resume command", "value": f"hermes -p {profile} chat --resume {s['id']}"}],
             "action": {"kind": "session", "label": "Open chat", "value": f"hermes -p {profile} chat --resume {s['id']}",
@@ -246,7 +251,7 @@ def src_keys(now: float) -> list[dict]:
     for r in results:
         dm = r.get("default_model") or {}
         if (dm.get("reach") or {}).get("verdict") == "blocked" and not dm.get("covered"):
-            items.append({"id": f"keys:model:{r['profile']}", "source": "keys", "priority": "now",
+            items.append({"id": f"keys:model:{r['profile']}", "source": "keys", "priority": "now", "agent": r["profile"],
                           "title": f"{r['profile']} can't reach its model", "detail": f"{dm.get('model')} via {dm.get('provider')}: no usable login",
                           "at": 0, "action": {"kind": "command", "label": "Key Doctor", "value": f"hermes -p {r['profile']} keydoctor"}})
         for c in r.get("credentials", []):
@@ -254,7 +259,8 @@ def src_keys(now: float) -> list[dict]:
             if state in ("ok", None) or (c["provider"], c["id"]) in seen:
                 continue
             seen.add((c["provider"], c["id"]))
-            items.append({"id": f"keys:{c['provider']}:{c['id']}:{state}", "source": "keys", "priority": "now" if state in ("benched", "dead", "expired", "wrong-auth-mode") else "today",
+            items.append({"agent": r["profile"] + (f" +{len(c.get('shared_with', []))}" if c.get("shared_with") else ""),
+                          "id": f"keys:{c['provider']}:{c['id']}:{state}", "source": "keys", "priority": "now" if state in ("benched", "dead", "expired", "wrong-auth-mode") else "today",
                           "title": f"{c['provider']} login {state.replace('-', ' ')}", "detail": f"{r['profile']}" + (f" + {len(c.get('shared_with', []))} more Bots" if c.get("shared_with") else ""),
                           "at": 0, "action": {"kind": "command", "label": "Copy fix", "value": (c.get("fix") or "").split("   #")[0] or f"hermes -p {r['profile']} keydoctor"}})
     return items
@@ -270,6 +276,7 @@ def src_vitals(now: float) -> list[dict]:
             if a.get("level") != "alert":
                 continue
             items.append({"id": f"vitals:{bot['profile']}:{a.get('rule') or a['finding']}", "source": "vitals", "priority": "now",
+                          "agent": bot.get("name") or bot["profile"],
                           "title": f"{bot.get('name') or bot['profile']}: {a['finding']}", "detail": a.get("treatment", ""),
                           "why": f"Reading {a.get('reading', '?')}; normal is {a.get('normal', '?')}.",
                           "facts": [["Seen in", f"{(a.get('evidence') or {}).get('file', '?')} · {(a.get('evidence') or {}).get('source', '?')}"],
@@ -319,11 +326,131 @@ def src_crons(now: float) -> list[dict]:
             failed = str(j.get("last_status") or "").lower() in ("error", "failed", "failure") or (j.get("failure_streak") or 0) > 0
             if failed:
                 items.append({"id": f"cron:{profile}:{j.get('id')}:{j.get('last_run_at')}", "source": "crons", "priority": "now",
+                              "agent": bot_name(profile, home),
                               "why": f"Failed {j.get('failure_streak') or 1} time(s) in a row." + (f" Last error: {str(j.get('last_error'))[:160]}" if j.get("last_error") else ""),
                               "facts": [["Schedule", str(j.get("schedule") or j.get("cron") or "?")], ["Last run", when(stamp(j.get("last_run_at")))],
                                         ["Next run", when(stamp(j.get("next_run_at")))]],
                               "title": f"Cron failed: {j.get('name') or j.get('id')}", "detail": f"{profile}" + (f" · {str(j.get('last_error'))[:80]}" if j.get("last_error") else ""),
                               "at": stamp(j.get("last_run_at")), "action": {"kind": "command", "label": "Runs", "value": f"hermes -p {profile} cron runs {j.get('id')}"}})
+    return items
+
+
+# ---- other agent apps: Claude Code and Codex keep their sessions as JSONL on disk ---------------
+
+APPS = {"claude": ("Claude Code", "Claude"), "codex": ("Codex", "Codex")}
+TAG = re.compile(r"<[^>]{1,40}>")
+
+
+def transcript_item(app: str, sid: str, title: str, last_role: str, last_text: str, at: float, cwd: str, now: float) -> dict | None:
+    """A Claude Code / Codex session is waiting on you when the assistant spoke last and ended stuck or on a question."""
+    if last_role != "assistant":
+        return None
+    kind = ending(TAG.sub(" ", last_text or "").strip())
+    if kind == "done":
+        return None
+    label, short = APPS[app]
+    title = (title or "Untitled session").strip()[:90]
+    resume = f"claude --resume {sid}" if app == "claude" else f"codex resume {sid}"
+    if cwd:
+        resume = f"cd {json.dumps(cwd)} && {resume}"
+    return {"id": f"{app}:{sid}", "source": app, "app": app, "priority": "now" if kind in ("needs sign-in", "waiting on your approval") else "today",
+            "title": f"{short} {kind}", "detail": f"“{title}”", "at": at, "agent": label,
+            "why": "It ended on a question and nobody has replied since." if kind == "asked you a question" else WHY.get(kind, ""),
+            "facts": [["Session", title], ["Folder", cwd or "?"], ["Last active", when(at)]],
+            "action": {"kind": "command", "label": "Resume", "value": resume}}
+
+
+def _tail_lines(path: Path, size: int = 2_000_000) -> list[str]:
+    """The last ~2 MB of a JSONL file: enough for the final messages of a long session."""
+    with path.open("rb") as f:
+        f.seek(0, 2)
+        end = f.tell()
+        f.seek(max(0, end - size))
+        data = f.read().decode("utf-8", "replace")
+    lines = data.splitlines()
+    return lines[1:] if end > size else lines
+
+
+def _text(content) -> str:
+    if isinstance(content, str):
+        return content
+    return "\n".join(c.get("text", "") for c in content or [] if isinstance(c, dict) and c.get("type") in ("text", "output_text", "input_text"))
+
+
+def src_claude(now: float, hours: float = 48) -> list[dict]:
+    """Claude Code sessions in ~/.claude/projects (opt in: "sources": {"claude": true})."""
+    if not (config().get("sources") or {}).get("claude"):
+        return []
+    items = []
+    for f in (HOME / ".claude" / "projects").glob("*/*.jsonl"):
+        try:
+            mtime = f.stat().st_mtime
+            if mtime < now - hours * 3600:
+                continue
+            title, role, text, cwd = "", "", "", ""
+            for line in _tail_lines(f):
+                try:
+                    d = json.loads(line)
+                except ValueError:
+                    continue
+                t = d.get("type")
+                if t in ("custom-title", "ai-title", "summary"):
+                    title = d.get("customTitle") or d.get("aiTitle") or d.get("summary") or title
+                elif t in ("user", "assistant") and not d.get("isSidechain") and not d.get("isMeta"):
+                    msg = d.get("message") or {}
+                    body = _text(msg.get("content"))
+                    if t == "user" and not body.strip():
+                        continue  # a tool result, not you replying
+                    role, text, cwd = t, body, d.get("cwd") or cwd
+            item = transcript_item("claude", f.stem, title or f.parent.name.replace("-", "/"), role, text, mtime, cwd, now)
+            if item:
+                items.append(item)
+        except OSError:
+            continue
+    return items
+
+
+def src_codex(now: float, hours: float = 48) -> list[dict]:
+    """Codex threads in ~/.codex/sessions (opt in: "sources": {"codex": true})."""
+    if not (config().get("sources") or {}).get("codex"):
+        return []
+    base = HOME / ".codex"
+    names = {}
+    try:
+        for line in (base / "session_index.jsonl").read_text().splitlines():
+            try:
+                d = json.loads(line)
+                names[d["id"]] = d.get("thread_name") or ""
+            except (ValueError, KeyError):
+                continue
+    except OSError:
+        pass
+    items = []
+    for f in (base / "sessions").glob("*/*/*/rollout-*.jsonl"):
+        try:
+            mtime = f.stat().st_mtime
+            if mtime < now - hours * 3600:
+                continue
+            sid, role, text, cwd = "", "", "", ""
+            for line in _tail_lines(f):
+                try:
+                    d = json.loads(line)
+                except ValueError:
+                    continue
+                p = d.get("payload") or {}
+                if d.get("type") == "session_meta":
+                    sid, cwd = p.get("id") or sid, p.get("cwd") or cwd
+                elif d.get("type") == "response_item" and p.get("type") == "message" and p.get("role") in ("user", "assistant"):
+                    body = _text(p.get("content"))
+                    if p["role"] == "user" and body.lstrip().startswith("<"):
+                        continue  # context Codex injects, not you replying
+                    role, text = p["role"], body
+            sid = sid or f.stem[-36:]
+            item = transcript_item("codex", sid, names.get(sid, ""), role, text, mtime, cwd, now)
+            if item:
+                items.append(item)
+        except OSError:
+            continue
     return items
 
 
@@ -378,6 +505,7 @@ def src_review(now: float) -> list[dict]:
             continue
         items.append({"id": f"review:{it['id']}", "source": "review", "priority": "today", "title": f"Review: {it.get('title', '')[:70]}",
                       "detail": f"{it.get('contentKey', '')} in Hermes X Studio", "at": iso_ts(it.get("updatedAt")),
+                      "agent": it.get("assignedAgent") if it.get("assignedAgent") not in (None, "", "Owner") else None,
                       "why": "A draft is waiting for you to approve, change or drop it." + (" It still has no visual." if it.get("visualStatus") == "MISSING" else ""),
                       "facts": [["Hook", str(it.get("hook") or "")[:140]], ["Type", str(it.get("contentType") or "")],
                                 ["Checked", str(it.get("verificationStatus") or "").lower()], ["Visual", str(it.get("visualStatus") or "").lower()],
@@ -404,7 +532,7 @@ def filed_card(raw: dict, now: float) -> dict | None:
     return {"id": f"filed:{raw['id']}", "source": "filed", "priority": raw.get("priority") if raw.get("priority") in PRIORITIES else "today",
             "title": str(raw["title"])[:120], "detail": str(raw.get("detail") or "")[:240], "at": raw.get("at") or now,
             "why": str(raw.get("why") or (f"Posted by {raw['from']}." if raw.get("from") else "")),
-            "facts": [[str(k), str(v)] for k, v in (raw.get("facts") or {}).items()][:8], "from": raw.get("from"), "action": action}
+            "facts": [[str(k), str(v)] for k, v in (raw.get("facts") or {}).items()][:8], "from": raw.get("from"), "agent": raw.get("from"), "action": action}
 
 
 def src_filed(now: float) -> list[dict]:
@@ -443,7 +571,9 @@ def remove_card(item_id: str) -> bool:
     return False
 
 
-SOURCES = {"filed": src_filed, "keys": src_keys, "vitals": src_vitals, "sessions": src_sessions, "crons": src_crons, "prs": src_prs, "review": src_review}
+APP = {"prs": "github", "review": "xstudio", "claude": "claude", "codex": "codex"}
+
+SOURCES = {"filed": src_filed, "claude": src_claude, "codex": src_codex, "keys": src_keys, "vitals": src_vitals, "sessions": src_sessions, "crons": src_crons, "prs": src_prs, "review": src_review}
 
 
 def load_state() -> dict:
@@ -471,6 +601,8 @@ def collect(names: list[str] | None = None) -> dict:
             items += got
         except Exception as e:  # one broken source must not hide the others
             errors[name] = f"{type(e).__name__}: {e}"[:160]
+    for it in items:
+        it.setdefault("app", APP.get(it["source"], "hermes"))
     merged = collapse_sessions(items)
     shown = visible(merged, load_state(), now)
     return {"checked_at": now, "items": shown, "counts": counts, "hidden": len(merged) - len(shown), "errors": errors,

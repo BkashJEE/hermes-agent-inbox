@@ -28,6 +28,10 @@ Bots can post their own cards too (`hermes inbox add`), so a cron job can ask yo
 | | Your PR has conflicts or failing checks | Later |
 | **Posted** | A Bot or script ran `hermes inbox add` | its choice |
 | **X Studio** (optional) | A draft is waiting for review | Today |
+| **Claude Code** (opt-in) | A session's last message is Claude's and it ended stuck, on a question, or asking you to check something | Now / Today |
+| **Codex** (opt-in) | The same, for Codex threads | Now / Today |
+
+Every card says **which Bot needs you** (or which Claude Code / Codex session). Tabs along the top split the list by app: All · Hermes · Claude · Codex · GitHub · X Studio.
 
 Chats show only the session title and how the session ended, never the messages. A daily cron that gets stuck every day shows as **one** card ("also 2 earlier times").
 
@@ -87,7 +91,7 @@ hermes inbox add "Title" [...]     # post a card
 
 ```json
 {
-  "sources": { "prs": false },
+  "sources": { "prs": false, "claude": true, "codex": true },
   "ignore_repos": ["me/old-experiment"],
   "stale_pr_days": 30,
   "xstudio_url": "http://127.0.0.1:3417"
@@ -101,7 +105,8 @@ hermes inbox add "Title" [...]     # post a card
   - `cron/jobs.json`;
   - Key Doctor's and Vitals' JSON output, if those plugins are installed;
   - `gh search prs --author @me`, if `gh` is signed in;
-  - the X Studio URL, if you set one.
+  - the X Studio URL, if you set one;
+  - with `claude` / `codex` turned on: the last ~2 MB of each Claude Code session in `~/.claude/projects/` and Codex thread in `~/.codex/sessions/` active in the last 48 h. It reads only the title, the folder, and the last message, to tell how it ended.
 - **Writes:**
   - `~/.local/state/hermes-inbox/`: done/snooze marks and a 10-minute PR cache;
   - `~/.hermes/inbox/`: posted cards.
@@ -112,7 +117,7 @@ Each source fails soft. If one can't be read, the others still show, with a one-
 ## Develop
 
 ```bash
-python3 -m unittest discover -s tests     # 19 tests, no Hermes needed
+python3 -m unittest discover -s tests     # 22 tests, no Hermes needed
 python3 hermes_inbox.py                   # runs without Hermes's CLI
 ```
 

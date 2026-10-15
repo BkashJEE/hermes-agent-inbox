@@ -15,9 +15,14 @@ class Ending(unittest.TestCase):
         self.assertEqual(h.ending("This command requires approval."), "waiting on your approval")
         self.assertEqual(h.ending("I hit the tool-call limit."), "hit a limit")
 
+    def test_only_the_closing_part_counts(self):
+        long = "Step 4: the Bot hits a 2FA code and you take over. " + "Details. " * 80 + "All set, it's merged."
+        self.assertEqual(h.ending(long), "done")
+
     def test_question_and_done(self):
         self.assertEqual(h.ending("Want me to open the PR?"), "asked you a question")
         self.assertEqual(h.ending("Merged and deployed."), "done")
+        self.assertEqual(h.ending("Rendered. Please check the GIF before I post."), "asked you to check")
         self.assertEqual(h.ending(""), "done")
 
 
@@ -141,6 +146,15 @@ class Root(unittest.TestCase):
         with mock.patch.dict(os.environ, {"HERMES_HOME": "/y/hh"}, clear=False):
             os.environ.pop("HERMES_ROOT", None)
             self.assertEqual(h.hermes_root(), Path("/y/hh"))
+
+
+class Transcripts(unittest.TestCase):
+    def test_waiting_only_when_the_assistant_spoke_last(self):
+        it = h.transcript_item("codex", "abc", "Daily review", "assistant", "<final>Want me to post it?</final>", NOW, "/w", NOW)
+        self.assertEqual((it["title"], it["agent"], it["app"]), ("Codex asked you a question", "Codex", "codex"))
+        self.assertIn("codex resume abc", it["action"]["value"])
+        self.assertIsNone(h.transcript_item("claude", "x", "t", "user", "Shall I?", NOW, "", NOW))
+        self.assertIsNone(h.transcript_item("claude", "x", "t", "assistant", "Done, merged.", NOW, "", NOW))
 
 
 class Time(unittest.TestCase):
