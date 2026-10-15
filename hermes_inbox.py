@@ -81,7 +81,8 @@ ENDINGS = [
     ("a site refused it", r"\b(can.t provide a secure connection|connection (refused|reset)|rate limit(ed)?|http 4(03|29))\b"),
     ("screen problem", r"\b(no active window|display (is )?not reachable|capture failed)\b"),
     ("asked you a question", r"\?\s*$"),
-    ("asked you to check", r"\b(please (check|confirm|review|approve|test|try)|after you (approve|check|confirm)|once you (approve|confirm|check)|let me know|your call|waiting for your (ok|go-ahead|answer))\b"),
+    ("asked you to check", r"\b(please (check|confirm|review|approve|test|try)|after you (approve|check|confirm)|once you (approve|confirm|check)|waiting for your (ok|go-ahead|answer))\b"),
+    ("asked you to decide", r"\b(say (yes|the word|\"[^\"]{1,30}\")|tell me (which|if|when|what)|if you (want|tell|say|prefer)|when you (want|can|are ready)|let me know|your (call|move|decision)|ready when you are|want me to|shall i|waits? on you(r)?\b|up to you)\b"),
 ]
 STUCK = {"needs sign-in", "waiting on your approval", "missing a tool", "hit a limit", "a site refused it", "screen problem"}
 
@@ -114,6 +115,7 @@ WHY = {
     "screen problem": "It couldn't see or reach the screen.",
     "asked you a question": "It ended on a question and you haven't opened the chat since.",
     "asked you to check": "It ended by asking you to check, confirm or approve something.",
+    "asked you to decide": "It finished and offered a next step; it's your move.",
 }
 
 
@@ -133,7 +135,7 @@ def session_item(profile: str, bot: str, s: dict, last_reply: str, now: float) -
     unread = (s.get("last_read_at") or 0) < (s.get("last_activity_at") or 0)
     if kind in STUCK:
         priority = "now" if kind in ("waiting on your approval", "needs sign-in") else "today"
-    elif kind in ("asked you a question", "asked you to check") and unread:
+    elif kind in ("asked you a question", "asked you to check", "asked you to decide") and unread:
         priority = "today"
     else:
         return None
@@ -352,11 +354,13 @@ APPS = {"claude": ("Claude Code", "Claude"), "codex": ("Codex", "Codex")}
 TAG = re.compile(r"<[^>]{1,40}>")
 
 
-def transcript_item(app: str, sid: str, title: str, last_role: str, last_text: str, at: float, cwd: str, now: float) -> dict | None:
-    """A Claude Code / Codex session is waiting on you when the assistant spoke last and ended stuck or on a question."""
-    if last_role != "assistant":
+def transcript_item(app: str, sid: str, title: str, last_role: str, last_text: str, at: float, cwd: str, now: float,
+                    kind: str | None = None, extra: list | None = None) -> dict | None:
+    """A Claude Code / Codex session is waiting on you when the assistant spoke last and ended stuck, on a question,
+    on an offer, or (``kind`` given) on a tool call nobody answered — a permission prompt."""
+    if last_role != "assistant" and not kind:
         return None
-    kind = ending(TAG.sub(" ", last_text or "").strip())
+    kind = kind or ending(TAG.sub(" ", last_text or "").strip())
     if kind == "done":
         return None
     label, short = APPS[app]
@@ -367,7 +371,7 @@ def transcript_item(app: str, sid: str, title: str, last_role: str, last_text: s
     return {"id": f"{app}:{sid}", "source": app, "app": app, "priority": "now" if kind in ("needs sign-in", "waiting on your approval") else "today",
             "title": f"{short} {kind}", "detail": f"“{title}”", "at": at, "agent": label,
             "why": "It ended on a question and nobody has replied since." if kind == "asked you a question" else WHY.get(kind, ""),
-            "facts": [["Session", title], ["Folder", cwd or "?"], ["Last active", when(at)]],
+            "facts": (extra or []) + [["Session", title], ["Folder", cwd or "?"], ["Last active", when(at)]],
             "action": {"kind": "command", "label": "Resume", "value": resume}}
 
 
@@ -388,10 +392,17 @@ def _text(content) -> str:
     return "\n".join(c.get("text", "") for c in content or [] if isinstance(c, dict) and c.get("type") in ("text", "output_text", "input_text"))
 
 
-def src_claude(now: float, hours: float = 48) -> list[dict]:
-    """Claude Code sessions in ~/.claude/projects (opt in: "sources": {"claude": true})."""
+def agent_hours() -> float:
+    return float(config().get("agent_hours", 24 * 7))  # other agents: a week, since their sessions sit longer
+
+
+def src_claude(now: float, hours: float | None = None) -> list[dict]:
+    """Claude Code sessions in ~/.claude/projects (opt in: "sources": {"claude": true}).
+    Waiting = the assistant spoke last and ended stuck / on a question / on an offer, or its last tool call
+    (a Bash command, an AskUserQuestion) was never answered: a permission prompt nobody saw."""
     if not (config().get("sources") or {}).get("claude"):
         return []
+    hours = hours or agent_hours()
     items = []
     for f in (HOME / ".claude" / "projects").glob("*/*.jsonl"):
         try:
@@ -399,6 +410,7 @@ def src_claude(now: float, hours: float = 48) -> list[dict]:
             if mtime < now - hours * 3600:
                 continue
             title, role, text, cwd = "", "", "", ""
+            last_tool, answered = None, set()
             for line in _tail_lines(f):
                 try:
                     d = json.loads(line)
@@ -409,11 +421,26 @@ def src_claude(now: float, hours: float = 48) -> list[dict]:
                     title = d.get("customTitle") or d.get("aiTitle") or d.get("summary") or title
                 elif t in ("user", "assistant") and not d.get("isSidechain") and not d.get("isMeta"):
                     msg = d.get("message") or {}
-                    body = _text(msg.get("content"))
+                    content = msg.get("content")
+                    cwd = d.get("cwd") or cwd
+                    if t == "assistant" and isinstance(content, list):
+                        calls = [b for b in content if isinstance(b, dict) and b.get("type") == "tool_use"]
+                        if calls:
+                            last_tool = calls[-1]
+                    if t == "user" and isinstance(content, list):
+                        answered.update(b.get("tool_use_id") for b in content if isinstance(b, dict) and b.get("type") == "tool_result")
+                    body = _text(content)
                     if t == "user" and not body.strip():
                         continue  # a tool result, not you replying
-                    role, text, cwd = t, body, d.get("cwd") or cwd
-            item = transcript_item("claude", f.stem, title or f.parent.name.replace("-", "/"), role, text, mtime, cwd, now)
+                    role, text = t, body
+            kind, extra = None, None
+            if last_tool and last_tool.get("id") not in answered:
+                name = str(last_tool.get("name") or "a tool")
+                kind = "asked you a question" if name == "AskUserQuestion" else "waiting on your approval"
+                inp = last_tool.get("input") or {}
+                what = inp.get("command") or inp.get("description") or ""
+                extra = [["Waiting on", name + (f": {str(what)[:90]}" if what else "")]]
+            item = transcript_item("claude", f.stem, title or f.parent.name.replace("-", "/"), role, text, mtime, cwd, now, kind, extra)
             if item:
                 items.append(item)
         except OSError:
@@ -421,10 +448,11 @@ def src_claude(now: float, hours: float = 48) -> list[dict]:
     return items
 
 
-def src_codex(now: float, hours: float = 48) -> list[dict]:
+def src_codex(now: float, hours: float | None = None) -> list[dict]:
     """Codex threads in ~/.codex/sessions (opt in: "sources": {"codex": true})."""
     if not (config().get("sources") or {}).get("codex"):
         return []
+    hours = hours or agent_hours()
     base = HOME / ".codex"
     names = {}
     try:
@@ -442,7 +470,7 @@ def src_codex(now: float, hours: float = 48) -> list[dict]:
             mtime = f.stat().st_mtime
             if mtime < now - hours * 3600:
                 continue
-            sid, role, text, cwd = "", "", "", ""
+            sid, role, text, cwd, last_kind = "", "", "", "", None
             for line in _tail_lines(f):
                 try:
                     d = json.loads(line)
@@ -451,13 +479,20 @@ def src_codex(now: float, hours: float = 48) -> list[dict]:
                 p = d.get("payload") or {}
                 if d.get("type") == "session_meta":
                     sid, cwd = p.get("id") or sid, p.get("cwd") or cwd
-                elif d.get("type") == "response_item" and p.get("type") == "message" and p.get("role") in ("user", "assistant"):
-                    body = _text(p.get("content"))
-                    if p["role"] == "user" and body.lstrip().startswith("<"):
-                        continue  # context Codex injects, not you replying
-                    role, text = p["role"], body
+                elif d.get("type") == "response_item":
+                    pt = p.get("type")
+                    if pt in ("function_call", "custom_tool_call", "local_shell_call"):
+                        last_kind = "call"
+                    elif pt in ("function_call_output", "custom_tool_call_output"):
+                        last_kind = "out"
+                    elif pt == "message" and p.get("role") in ("user", "assistant"):
+                        body = _text(p.get("content"))
+                        if p["role"] == "user" and body.lstrip().startswith("<"):
+                            continue  # context Codex injects, not you replying
+                        role, text, last_kind = p["role"], body, "msg"
             sid = sid or f.stem[-36:]
-            item = transcript_item("codex", sid, names.get(sid, ""), role, text, mtime, cwd, now)
+            kind = "waiting on your approval" if last_kind == "call" else None
+            item = transcript_item("codex", sid, names.get(sid, ""), role, text, mtime, cwd, now, kind, [["Waiting on", "a tool call"]] if kind else None)
             if item:
                 items.append(item)
         except OSError:
@@ -648,6 +683,26 @@ def file_card(title: str, *, detail: str = "", priority: str = "today", url: str
     return {"ok": True, "id": f"filed:{key}"}
 
 
+DEMO_CARDS = [
+    dict(key="demo-approve", title="Approve the newsletter draft", detail="Draft 3 is ready; two links need checking", priority="today", sender="Scribe (demo)", url="https://example.com/newsletter/3"),
+    dict(key="demo-signin", title="Scout needs you to sign in to X", detail="The daily competitor scan stopped at the login page", priority="now", sender="Scout (demo)", command="hermes -p scout chat --resume demo"),
+    dict(key="demo-thumb", title="Pick a thumbnail for Friday's video", detail="Three options are ready; the deadline is Thursday noon", priority="today", sender="Scribe (demo)", url="https://example.com/thumbnails"),
+    dict(key="demo-cron", title="Nightly backup failed twice", detail="rsync: connection timed out · next run 03:00", priority="now", sender="Atlas (demo)", command="hermes cron runs nightly-backup"),
+    dict(key="demo-later", title="Rotate the OpenRouter key before it expires", detail="It expires in 9 days", priority="later", sender="Ledger (demo)", command="hermes auth add openrouter"),
+]
+
+
+def demo(on: bool) -> dict:
+    """Post (or remove) a few clearly labelled sample cards on the Hermes tab, for showing the Inbox off."""
+    if on:
+        for c in DEMO_CARDS:
+            file_card(c["title"], detail=c["detail"], priority=c["priority"], sender=c["sender"], key=c["key"],
+                      url=c.get("url", ""), command=c.get("command", ""), why="A demo card, posted with `hermes inbox demo on`. Remove them all with `hermes inbox demo off`.")
+        return {"ok": True, "demo": "on", "cards": len(DEMO_CARDS)}
+    removed = sum(remove_card(f"filed:{c['key']}") for c in DEMO_CARDS)
+    return {"ok": True, "demo": "off", "removed": removed}
+
+
 def remove_card(item_id: str) -> bool:
     """Done on a filed card deletes its file, so the sender can post it again later."""
     if not item_id.startswith("filed:"):
@@ -712,8 +767,8 @@ def render(data: dict) -> str:
 
 def add_arguments(ap) -> None:
     """Shared by the standalone script and `hermes inbox`."""
-    ap.add_argument("action", nargs="?", default="list", choices=["list", "add", "done", "snooze", "reset", "set"])
-    ap.add_argument("target", nargs="*", help="add TITLE | done ID | snooze ID HOURS | set SOURCE on|off")
+    ap.add_argument("action", nargs="?", default="list", choices=["list", "add", "done", "snooze", "reset", "set", "demo"])
+    ap.add_argument("target", nargs="*", help="add TITLE | done ID | snooze ID HOURS | set SOURCE on|off | demo on|off")
     ap.add_argument("--json", action="store_true", help="one-line JSON (the Desktop page reads this)")
     ap.add_argument("--source", action="append", help="only this source: " + ", ".join(SOURCES))
     add = ap.add_argument_group("add (post a card, e.g. from a Bot or a cron job)")
@@ -737,6 +792,10 @@ def dispatch(a) -> str:
             raise ValueError('usage: hermes inbox add "Title" [--detail ...] [--priority now|today|later] [--url ...]')
         return json.dumps(file_card(" ".join(target), detail=a.detail, priority=a.priority, url=a.url, command=a.card_command,
                                     session=a.session, profile=a.card_profile, why=a.why, sender=a.sender, key=a.key, hours=a.hours))
+    if action == "demo":
+        if target[:1] not in (["on"], ["off"]):
+            raise ValueError("usage: hermes inbox demo on|off")
+        return json.dumps(demo(target[0] == "on"))
     if action == "set":
         if len(target) != 2 or target[0] not in SOURCES or target[1] not in ("on", "off"):
             raise ValueError("usage: hermes inbox set SOURCE on|off  (sources: " + ", ".join(SOURCES) + ")")

@@ -23,6 +23,8 @@ class Ending(unittest.TestCase):
         self.assertEqual(h.ending("Want me to open the PR?"), "asked you a question")
         self.assertEqual(h.ending("Merged and deployed."), "done")
         self.assertEqual(h.ending("Rendered. Please check the GIF before I post."), "asked you to check")
+        self.assertEqual(h.ending("The fix is one word. Say yes and I'll do it."), "asked you to decide")
+        self.assertEqual(h.ending("Published 0.4.6. Say \"release\" when you want that."), "asked you to decide")
         self.assertEqual(h.ending(""), "done")
 
 
@@ -185,6 +187,26 @@ class Switch(unittest.TestCase):
                 self.assertEqual(h.config(), {"stale_pr_days": 9, "sources": {"claude": False}})
             finally:
                 h.CONFIG = old
+
+
+class Pending(unittest.TestCase):
+    def test_unanswered_tool_call_is_an_approval(self):
+        it = h.transcript_item("claude", "s", "Deploy", "assistant", "", NOW, "/w", NOW, "waiting on your approval", [["Waiting on", "Bash: npm publish"]])
+        self.assertEqual((it["priority"], it["title"], it["facts"][0]), ("now", "Claude waiting on your approval", ["Waiting on", "Bash: npm publish"]))
+
+    def test_demo_cards_round_trip(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            old = h.FILED
+            h.FILED = Path(d)
+            try:
+                self.assertEqual(h.demo(True)["cards"], len(h.DEMO_CARDS))
+                self.assertEqual(len(h.src_filed(NOW)), len(h.DEMO_CARDS))
+                self.assertTrue(all("(demo)" in c["agent"] for c in h.src_filed(NOW)))
+                self.assertEqual(h.demo(False)["removed"], len(h.DEMO_CARDS))
+                self.assertEqual(h.src_filed(NOW), [])
+            finally:
+                h.FILED = old
 
 
 class Time(unittest.TestCase):

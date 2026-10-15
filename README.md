@@ -28,7 +28,7 @@ Bots can post their own cards too (`hermes inbox add`), so a cron job can ask yo
 | | It has conflicts or failing checks | Later |
 | **Posted** | A Bot or script ran `hermes inbox add` | its choice |
 | **X Studio** (optional) | A draft is waiting for review | Today |
-| **Claude Code** (opt-in) | A session's last message is Claude's and it ended stuck, on a question, or asking you to check something; plus the PRs Claude Code opened | Now / Today |
+| **Claude Code** (opt-in) | A session (last 7 days) is stopped at a permission prompt or an unanswered question (Now); or Claude spoke last and ended on a question, an offer ("say yes and I'll…"), or asking you to check something (Today); plus the PRs Claude Code opened | Now / Today |
 | **Codex (ChatGPT)** (opt-in) | The same, for Codex threads | Now / Today |
 
 Every card says **which Bot needs you** (or which Claude Code / Codex session).
@@ -88,6 +88,7 @@ hermes inbox done ID               # hide until it changes
 hermes inbox snooze ID 24          # hide for 24 h
 hermes inbox add "Title" [...]     # post a card
 hermes inbox set claude on         # show Claude Code sessions (or codex; off to hide)
+hermes inbox demo on               # five labelled sample cards on the Hermes tab, for showing it off (demo off removes them)
 ```
 
 ## Settings (optional)
@@ -100,6 +101,7 @@ hermes inbox set claude on         # show Claude Code sessions (or codex; off to
   "hermes_repos": ["hermes", "screenpolish"],
   "ignore_repos": ["me/old-experiment"],
   "stale_pr_days": 30,
+  "agent_hours": 168,
   "xstudio_url": "http://127.0.0.1:3417"
 }
 ```
@@ -123,7 +125,7 @@ Each source fails soft. If one can't be read, the others still show, with a one-
 ## Develop
 
 ```bash
-python3 -m unittest discover -s tests     # 25 tests, no Hermes needed
+python3 -m unittest discover -s tests     # 27 tests, no Hermes needed
 python3 hermes_inbox.py                   # runs without Hermes's CLI
 ```
 

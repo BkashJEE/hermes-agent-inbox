@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 — 2026-10-15
+
+- **Permission prompts count as waiting.** A Claude Code session whose last tool call (a Bash command, an AskUserQuestion) was never answered is stopped at a prompt nobody saw; it now shows as "waiting on your approval" (Now), with the command in the card. Same for a Codex thread ending on an unanswered tool call.
+- **Offers count as waiting.** Replies ending with "say yes and I'll do it", "tell me which…", "let me know", "it's your call" are a new ending, "asked you to decide" (Today).
+- **Claude and Codex look back 7 days** instead of 2 (`agent_hours` in `inbox.json`).
+- `hermes inbox demo on|off`: five labelled sample cards on the Hermes tab, for showing the Inbox off.
+
 ## 0.3.3 — 2026-10-15
 
 - **Claude and Codex appear only when you click their tab.** No switches, no All tab. Hermes is the default; the Claude and Codex (ChatGPT) tabs are always there, and the first click on one turns its source on. Nothing of theirs shows on the Hermes tab or in the status-bar count.
