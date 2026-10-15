@@ -1,11 +1,10 @@
-name: hermes-inbox
+name: hermes-agent-inbox
 version: "0.1.0"
 manifest_version: 2
 api_version: 1
 description: "Everything your Hermes Bots and tools need from you, in one list: Bots stuck on a sign-in or an approval, questions you haven't answered, failed cron jobs, benched keys, PRs to merge and X Studio drafts to review. Inside Hermes Desktop, as /inbox, and as `hermes inbox`. Read-only."
 author: Bikash Joshi
 license: MIT
+homepage: https://github.com/BkashJEE/hermes-agent-inbox
 tags: [desktop, inbox, sessions, cron, triage]
 requires_hermes: ">=0.21.5"
-provides_commands:
-  - inbox

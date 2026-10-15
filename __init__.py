@@ -1,4 +1,4 @@
-"""hermes-inbox: everything your Bots and tools need from you, in one list.
+"""hermes-agent-inbox: everything your Bots and tools need from you, in one list.
 
 Registers:
   * ``hermes inbox`` CLI command (``--json`` for the desktop page, ``done`` / ``snooze`` to clear items);
@@ -10,6 +10,8 @@ The desktop page in ``desktop/plugin.js`` runs ``hermes inbox --json`` through t
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from . import commands
 
 
@@ -17,9 +19,12 @@ def register(ctx) -> None:
     ctx.register_command(
         "inbox",
         handler=commands.slash_command,
-        description="What your Bots and tools are waiting on you for (hermes-inbox)",
+        description="What your Bots and tools are waiting on you for (hermes-agent-inbox)",
         args_hint="[source]",
     )
+    skill = Path(__file__).resolve().parent / "skills" / "inbox" / "SKILL.md"
+    if hasattr(ctx, "register_skill") and skill.exists():
+        ctx.register_skill("inbox", skill, description="Ask the user for a decision, approval or review by posting a card to their Hermes Agent Inbox")
     ctx.register_cli_command(
         name="inbox",
         help="Everything your Bots and tools need from you: stuck sessions, failed crons, benched keys, PRs, reviews",

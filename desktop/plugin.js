@@ -1,4 +1,4 @@
-// hermes-inbox: desktop half. Plain ESM, loaded uncompiled by Hermes Desktop (no JSX, no build).
+// hermes-agent-inbox: desktop half. Plain ESM, loaded uncompiled by Hermes Desktop (no JSX, no build).
 //
 // Surfaces: route /inbox (sidebar row "Inbox" + ⌘K "Open Inbox") and a status-bar chip.
 // Data: host.requestProfile(route, "cli.exec", { argv: ["--profile", p, "inbox", "--json"] })
@@ -10,7 +10,7 @@ import { host, PALETTE_AREA, ROUTES_AREA, SIDEBAR_NAV_AREA, STATUSBAR_AREAS } fr
 import { useEffect, useState } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
 
-const ID = 'hermes-inbox'
+const ID = 'hermes-agent-inbox'
 const ROUTE = '/inbox'
 const REFRESH_MS = 5 * 60000
 const CLI_TIMEOUT_MS = 150000
@@ -99,7 +99,7 @@ const LANES = [
   { key: 'today', label: 'Today', hint: 'waiting on a decision', color: C.orange },
   { key: 'later', label: 'Later', hint: 'when you have a minute', color: C.t3 },
 ]
-const SOURCE = { keys: 'KEYS', vitals: 'VITALS', sessions: 'CHAT', crons: 'CRON', prs: 'PR', review: 'REVIEW' }
+const SOURCE = { filed: 'POSTED', keys: 'KEYS', vitals: 'VITALS', sessions: 'CHAT', crons: 'CRON', prs: 'PR', review: 'REVIEW' }
 
 function ago(ts) {
   if (!ts) return ''
@@ -125,7 +125,7 @@ const CSS = `
 .hin .scroll::-webkit-scrollbar{width:8px}.hin .scroll::-webkit-scrollbar-track{background:transparent}
 .hin .scroll::-webkit-scrollbar-thumb{background:var(--ui-stroke-tertiary,#34343b);border-radius:8px}
 .hin .lane{margin:4px 0 16px}
-.hin .lane-title{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:2px 6px 2px 0;border:0;background:transparent;color:inherit;cursor:pointer;border-radius:6px;font:inherit}.hin .lane-title:hover b{text-decoration:underline}.hin .lane-title .codicon{font-size:12px;color:var(--ui-text-tertiary,#a6a4b0)}.hin .lane.folded{margin-bottom:8px}.hin .lane.folded .lane-title{margin-bottom:0}.hin .tally span{cursor:pointer;user-select:none}.hin .tally span.off{opacity:.45;text-decoration:line-through}.hin .card{cursor:pointer;outline:none}.hin .card:focus-visible{box-shadow:0 0 0 2px var(--a)}.hin .chev{font-size:12px;color:var(--ui-text-quaternary,#6e7681);opacity:0;transition:opacity .15s}.hin .card:hover .chev,.hin .card.open .chev{opacity:1}.hin .card.open{height:auto;min-height:116px;grid-column:span 2;cursor:default;transform:none}.hin .card.open .name{-webkit-line-clamp:unset;font-size:13.5px}.hin .card.open .label{display:block;font-size:10.5px;font-weight:600;color:var(--ui-text-secondary,#b8b6c2);margin:8px 0 0}.hin .card.open .brief li span{-webkit-line-clamp:unset}.hin .card.open .foot{margin-top:10px}.hin .cmd{display:block;margin-top:8px;font:11px ${MONO};color:var(--ui-text-secondary,#b8b6c2);background:var(--ui-bg-tertiary,#0d1117);border:1px solid var(--ui-stroke-tertiary,#34343b);border-radius:6px;padding:5px 8px;overflow-wrap:anywhere;user-select:all;cursor:text}@container (max-width:520px){.hin .card.open{grid-column:auto}}
+.hin .lane-title{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:2px 6px 2px 0;border:0;background:transparent;color:inherit;cursor:pointer;border-radius:6px;font:inherit}.hin .lane-title:hover b{text-decoration:underline}.hin .shine{background:linear-gradient(100deg,var(--l) 0%,var(--l) 38%,#fff 50%,var(--l) 62%,var(--l) 100%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--l) 55%,transparent));animation:hin-sweep 4.5s ease-in-out infinite}.hin .shine.soft{background-image:linear-gradient(100deg,color-mix(in srgb,var(--l) 45%,#8b8b95) 0%,color-mix(in srgb,var(--l) 45%,#8b8b95) 40%,color-mix(in srgb,var(--l) 30%,#fff) 50%,color-mix(in srgb,var(--l) 45%,#8b8b95) 60%,color-mix(in srgb,var(--l) 45%,#8b8b95) 100%);filter:drop-shadow(0 0 4px color-mix(in srgb,var(--l) 30%,transparent));animation-delay:.25s}@keyframes hin-sweep{0%{background-position:100% 0}55%,100%{background-position:0 0}}.hin .tally .on{position:relative;overflow:hidden;box-shadow:0 0 10px color-mix(in srgb,var(--t) 35%,transparent),inset 0 0 6px color-mix(in srgb,var(--t) 18%,transparent)}.hin .tally .on:after{content:'';position:absolute;inset:0;background:linear-gradient(100deg,transparent 35%,color-mix(in srgb,#fff 35%,transparent) 50%,transparent 65%);background-size:250% 100%;animation:hin-sweep 4.5s ease-in-out infinite;pointer-events:none}.hin h1{background:linear-gradient(100deg,var(--ui-text-primary,#eeedf2) 40%,#fff 50%,var(--ui-text-primary,#eeedf2) 60%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:hin-sweep 6s ease-in-out infinite;filter:drop-shadow(0 0 8px color-mix(in srgb,var(--ui-accent,#4a84fe) 35%,transparent))}@media (prefers-reduced-motion:reduce){.hin .shine,.hin h1,.hin .tally .on:after{animation:none}}.hin .lane-title .codicon{font-size:12px;color:var(--ui-text-tertiary,#a6a4b0)}.hin .lane.folded{margin-bottom:8px}.hin .lane.folded .lane-title{margin-bottom:0}.hin .tally span{cursor:pointer;user-select:none}.hin .tally span.off{opacity:.45;text-decoration:line-through}.hin .card{cursor:pointer;outline:none}.hin .card:focus-visible{box-shadow:0 0 0 2px var(--a)}.hin .chev{font-size:12px;color:var(--ui-text-quaternary,#6e7681);opacity:0;transition:opacity .15s}.hin .card:hover .chev,.hin .card.open .chev{opacity:1}.hin .card.open{height:auto;min-height:116px;grid-column:span 2;cursor:default;transform:none}.hin .card.open .name{-webkit-line-clamp:unset;font-size:13.5px}.hin .card.open .label{display:block;font-size:10.5px;font-weight:600;color:var(--ui-text-secondary,#b8b6c2);margin:8px 0 0}.hin .card.open .brief li span{-webkit-line-clamp:unset}.hin .card.open .foot{margin-top:10px}.hin .why{margin-top:8px;font-size:11.5px;line-height:1.5;color:var(--ui-text-primary,#eeedf2)}.hin .facts{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:8px 0 0;font-size:11px}.hin .facts dt{color:var(--ui-text-quaternary,#6e7681)}.hin .facts dd{margin:0;color:var(--ui-text-secondary,#b8b6c2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hin .more{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.hin .more button{font:11px system-ui,sans-serif;padding:3px 9px;border-radius:999px;border:1px solid color-mix(in srgb,var(--a) 40%,transparent);background:color-mix(in srgb,var(--a) 8%,transparent);color:var(--ui-text-secondary,#b8b6c2);cursor:pointer}.hin .more button:hover{color:var(--ui-text-primary,#eeedf2);background:color-mix(in srgb,var(--a) 18%,transparent)}.hin .cmd{display:block;margin-top:8px;font:11px ${MONO};color:var(--ui-text-secondary,#b8b6c2);background:var(--ui-bg-tertiary,#0d1117);border:1px solid var(--ui-stroke-tertiary,#34343b);border-radius:6px;padding:5px 8px;overflow-wrap:anywhere;user-select:all;cursor:text}@container (max-width:520px){.hin .card.open{grid-column:auto}}
 .hin .lane-title b{font:700 12px ${MONO};letter-spacing:.08em}
 .hin .lane-title span{font-size:11.5px;color:var(--ui-text-quaternary,#6e7681)}
 .hin .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,210px),1fr));gap:10px}
@@ -152,12 +152,13 @@ const CSS = `
 .hin .note{font-size:11px;color:var(--ui-text-quaternary,#6e7681);line-height:1.6}
 .hin .warn{font-size:11.5px;color:var(--ui-orange,#ffa657);margin-bottom:10px}
 `
-const ICON = { keys: 'key', vitals: 'pulse', sessions: 'comment-discussion', crons: 'clock', prs: 'git-pull-request', review: 'eye' }
-const KIND = { keys: 'Key Doctor', vitals: 'Vitals', sessions: 'Bot chat', crons: 'Cron job', prs: 'Pull request', review: 'X Studio' }
+const ICON = { filed: 'mail', keys: 'key', vitals: 'pulse', sessions: 'comment-discussion', crons: 'clock', prs: 'git-pull-request', review: 'eye' }
+const KIND = { filed: 'Posted', keys: 'Key Doctor', vitals: 'Vitals', sessions: 'Bot chat', crons: 'Cron job', prs: 'Pull request', review: 'X Studio' }
 const NEEDS = { now: 'What it needs', today: 'What it needs', later: 'When you can' }
 
 function Go({ a }) {
   const [copied, setCopied] = useState(false)
+  if (!a || a.kind === 'none' || !a.value) return jsx('span', { style: { marginLeft: 'auto' } })
   const label = `${a.label} →`
   if (a.kind === 'session') {
     return jsx('button', { type: 'button', className: 'go',
@@ -177,6 +178,13 @@ const FOLD_KEY = 'hermes-inbox.folded.v1'
 function loadFolded() { try { return JSON.parse(localStorage.getItem(FOLD_KEY) || '{}') } catch { return {} } }
 function saveFolded(v) { try { localStorage.setItem(FOLD_KEY, JSON.stringify(v)) } catch { /* fine */ } }
 
+function CopyBtn({ m }) {
+  const [done, setDone] = useState(false)
+  return jsx('button', { type: 'button', title: m.value,
+    onClick: () => navigator.clipboard?.writeText(m.value).then(() => { setDone(true); setTimeout(() => setDone(false), 1500) }),
+    children: done ? 'Copied ✓' : m.label })
+}
+
 function Card({ it, color, open, onToggle }) {
   const stop = (e) => e.stopPropagation()
   return jsxs('div', {
@@ -188,13 +196,16 @@ function Card({ it, color, open, onToggle }) {
         jsx('span', { className: 'icon', children: jsx('i', { className: `codicon codicon-${ICON[it.source] || 'circle'}` }) }),
         jsxs('div', { style: { minWidth: 0, flex: 1 }, children: [
           jsx('div', { className: 'name', children: it.title }),
-          jsx('div', { className: 'src', children: `${KIND[it.source] || it.source}${it.at ? ` · ${ago(it.at)} ago` : ''}` }),
+          jsx('div', { className: 'src', children: `${it.from ? `From ${it.from}` : KIND[it.source] || it.source}${it.at ? ` · ${ago(it.at)} ago` : ''}` }),
         ] }),
         jsx('i', { className: `chev codicon codicon-chevron-${open ? 'up' : 'down'}` }),
       ] }),
       jsx('div', { className: 'label', children: NEEDS[it.priority] }),
-      jsx('ul', { className: 'brief', children: jsx('li', { children: jsx('span', { children: it.detail || it.action.label }) }) }),
-      open ? jsx('code', { className: 'cmd', onClick: stop, children: it.action.value }) : null,
+      jsx('ul', { className: 'brief', children: jsx('li', { children: jsx('span', { children: it.detail || it.why || it.action.label }) }) }),
+      open && it.why ? jsx('div', { className: 'why', children: it.why }) : null,
+      open && (it.facts || []).length ? jsx('dl', { className: 'facts', children: it.facts.filter(([, v]) => v).flatMap(([k, v]) => [jsx('dt', { children: k }, `${k}-k`), jsx('dd', { title: v, children: v }, `${k}-v`)]) }) : null,
+      open && it.action.kind === 'command' ? jsx('code', { className: 'cmd', onClick: stop, children: it.action.value }) : null,
+      open && (it.more || []).length ? jsx('div', { className: 'more', onClick: stop, children: it.more.map((m) => jsx(CopyBtn, { m }, m.label)) }) : null,
       jsxs('div', { className: 'foot', onClick: stop, children: [
         jsx('button', { type: 'button', className: 'done', title: 'Hide until it changes', onClick: () => clear(it, 'done'), children: '✓ Done' }),
         jsx('button', { type: 'button', className: 'snooze', title: 'Hide for a day', onClick: () => clear(it, 'snooze', 24), children: '◷ Snooze' }),
@@ -209,8 +220,8 @@ function Lane({ lane, items, folded, onFold, openId, setOpenId }) {
   return jsxs('section', { className: `lane${folded ? ' folded' : ''}`, children: [
     jsxs('button', { type: 'button', className: 'lane-title', 'aria-expanded': !folded, onClick: onFold, children: [
       jsx('i', { className: `codicon codicon-chevron-${folded ? 'right' : 'down'}` }),
-      jsx('b', { style: { color: items.length ? lane.color : C.t4 }, children: `${lane.label.toUpperCase()} · ${items.length}` }),
-      jsx('span', { children: lane.hint }),
+      jsx('b', { className: items.length ? 'shine' : '', style: { '--l': items.length ? lane.color : C.t4, color: items.length ? lane.color : C.t4 }, children: `${lane.label.toUpperCase()} · ${items.length}` }),
+      jsx('span', { className: items.length ? 'shine soft' : '', style: { '--l': items.length ? lane.color : C.t4 }, children: lane.hint }),
     ] }),
     folded ? null : jsx('div', { className: 'grid', children: items.length
       ? items.map((it) => jsx(Card, { it, color: lane.color, open: openId === it.id, onToggle: () => setOpenId(openId === it.id ? null : it.id) }, it.id))
@@ -243,7 +254,7 @@ function InboxPage() {
     jsx('style', { children: CSS }),
     head,
     jsx('div', { className: 'scroll', children: !d
-      ? (s.error ? jsx('div', { style: { color: C.red, fontSize: 12.5 }, children: `Could not read the inbox: ${s.error}. Is the hermes-inbox plugin switched on (Settings → Plugins)?` }) : null)
+      ? (s.error ? jsx('div', { style: { color: C.red, fontSize: 12.5 }, children: `Could not read the inbox: ${s.error}. Is the hermes-agent-inbox plugin switched on (Settings → Plugins)?` }) : null)
       : [
         items.length ? null : jsx('div', { className: 'zero', children: 'Inbox zero. No Bot is waiting on you.' }, 'zero'),
         ...LANES.map((lane) => jsx(Lane, { lane, items: items.filter((i) => i.priority === lane.key), folded: Boolean(folded[lane.key]), onFold: () => fold(lane.key), openId, setOpenId }, lane.key)),

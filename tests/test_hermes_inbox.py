@@ -100,6 +100,37 @@ class Collapse(unittest.TestCase):
         self.assertEqual(len(h.collapse_sessions([a, b])), 2)
 
 
+class Filed(unittest.TestCase):
+    def test_card_with_url_and_bad_priority(self):
+        c = h.filed_card({"id": "x", "title": "Pick a thumbnail", "url": "https://e.x", "priority": "urgent", "from": "Gary"}, NOW)
+        self.assertEqual((c["id"], c["priority"], c["action"]["kind"]), ("filed:x", "today", "url"))
+        self.assertEqual(c["why"], "Posted by Gary.")
+
+    def test_session_card_opens_the_chat(self):
+        c = h.filed_card({"id": "y", "title": "t", "session": "s9", "profile": "gary"}, NOW)
+        self.assertEqual((c["action"]["kind"], c["action"]["session"], c["action"]["profile"]), ("session", "s9", "gary"))
+
+    def test_expired_and_malformed_are_skipped(self):
+        self.assertIsNone(h.filed_card({"id": "z", "title": "t", "expires_at": NOW - 1}, NOW))
+        self.assertIsNone(h.filed_card({"title": "no id"}, NOW))
+        self.assertIsNone(h.filed_card("junk", NOW))
+
+    def test_post_update_and_done_round_trip(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            old = h.FILED
+            h.FILED = Path(d)
+            try:
+                a = h.file_card("Approve the deploy", sender="Jarvis", key="deploy")
+                h.file_card("Approve the deploy (v2)", sender="Jarvis", key="deploy")  # same key updates
+                cards = h.src_filed(NOW)
+                self.assertEqual([c["title"] for c in cards], ["Approve the deploy (v2)"])
+                self.assertTrue(h.remove_card(a["id"]))
+                self.assertEqual(h.src_filed(NOW), [])
+            finally:
+                h.FILED = old
+
+
 class Time(unittest.TestCase):
     def test_iso_is_utc(self):
         self.assertEqual(h.iso_ts("1970-01-02T00:00:00.000Z"), 86400.0)

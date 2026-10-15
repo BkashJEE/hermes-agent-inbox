@@ -1,49 +1,117 @@
-# Hermes Inbox
+# Hermes Agent Inbox
 
-Everything your Hermes Bots and tools are waiting on you for, in one list.
+**Everything your Hermes Bots and tools are waiting on you for, in one list.**
 
-| Source | Shows up when | Priority |
+You run several Bots, cron jobs and background tasks. When one of them needs you, the signal is scattered:
+- a session that ended on "please sign in";
+- a cron job that failed overnight;
+- a login Hermes quietly benched;
+- a PR that's been ready for a week.
+
+The Inbox collects all of it into Now / Today / Later cards in Hermes Desktop, plus `hermes inbox` in the terminal and `/inbox` in any chat.
+
+Bots can post their own cards too (`hermes inbox add`), so a cron job can ask you for a decision without spamming your phone.
+
+## What shows up
+
+| Source | A card appears when | Priority |
 |---|---|---|
-| Chats | a Bot's session in the last 48 h ended on a sign-in or approval request | now |
-| | it hit a limit, a missing tool or a refusing site | today |
-| | it asked you a question you haven't opened | today |
-| Vitals | a red alarm | now |
-| Keys (Key Doctor) | a Bot can't reach its model; a login is benched, dead or expiring | now / today |
-| Crons | the last run failed | now |
-| PRs | yours are ready to merge (today; later if untouched for a month), or have conflicts or failing checks (later) | |
-| Review | a Hermes X Studio draft is waiting for your decision | today |
+| **Chats** | A Bot's session in the last 48 h ended on a sign-in or an approval request | Now |
+| | It hit a limit, a missing tool or a site that refused it | Today |
+| | It ended on a question you haven't opened | Today |
+| **Crons** | A job's last run failed | Now |
+| **Keys** ([Key Doctor](https://github.com/BkashJEE/hermes-key-doctor), optional) | A Bot can't reach its model; a login is benched, dead or expiring | Now / Today |
+| **Vitals** (optional) | A red alarm | Now |
+| **PRs** (`gh`, optional) | Your PR is ready to merge | Today, or Later if untouched for 30 days |
+| | Your PR has conflicts or failing checks | Later |
+| **Posted** | A Bot or script ran `hermes inbox add` | its choice |
+| **X Studio** (optional) | A draft is waiting for review | Today |
 
-Chats show only the session title and how it ended, never the messages. A daily cron that is stuck every day shows as one line ("also 1 earlier time").
+Chats show only the session title and how the session ended, never the messages. A daily cron that gets stuck every day shows as **one** card ("also 2 earlier times").
 
-## Use it
+## In Hermes Desktop
+
+- **The Inbox page** (`/inbox`, sidebar and ⌘K).
+- **Flash cards** grouped Now / Today / Later.
+- **Folding:** each section folds, and the fold is remembered.
+- **Click a card to expand it.** You see:
+  - why it's there;
+  - the facts (when, how often, which Bot);
+  - the exact command;
+  - one-click copy buttons.
+- **Open chat →** jumps straight to the stuck session in the right Bot.
+- **Done** hides a card until it changes. **Snooze** hides it for a day; expanded cards also offer a week.
+- **A `▣` status-bar chip:** `2 waiting on you`.
+
+## Bots can ask you for things
 
 ```bash
-hermes inbox                 # the list
-hermes inbox --json          # for the Desktop page
-hermes inbox done ID         # hide until the item changes
-hermes inbox snooze ID 24    # hide for 24 hours
-/inbox                       # in any chat
+hermes inbox add "Pick a thumbnail for Friday's video" \
+  --from Gary --priority today --url https://example.com/thumbs --key friday-thumb
 ```
 
-In Hermes Desktop it is the **Inbox** page (`/inbox`, sidebar and ⌘K) with a `▣` status-bar chip.
-- **Open chat** jumps to the stuck session in its own Bot.
-- **Done** and **Snooze 1d** clear a row.
+- **`--key`:** the same key updates the card instead of adding a duplicate, so a cron can re-post safely.
+- **`--hours N`:** the card expires after N hours.
+- **`--session ID --profile NAME`:** the card opens that chat.
 
-The script also runs on its own: `python3 hermes_inbox.py`.
+The plugin ships an `inbox` skill that teaches Bots when to post (and when not to).
 
-## Install (this machine)
+## Install
 
 ```bash
-ln -s ~/hermes-inbox ~/.hermes/profiles/ceo/plugins/hermes-inbox
-ln -s ~/hermes-inbox/desktop ~/.hermes/desktop-plugins/hermes-inbox
-hermes -p ceo plugins enable hermes-inbox
+hermes plugins install BkashJEE/hermes-agent-inbox --enable
 ```
 
-Then switch it on under **Desktop Settings → Plugins**. The Desktop marks it as a unified package (it writes `desktop/.hermes-package.json`), and those start off.
+Then switch it on in **Hermes Desktop → Settings → Plugins**. Desktop starts agent + desktop packages switched off.
 
-## Notes
+### Use it
 
-- **Read-only.** The only write is `~/.local/state/hermes-inbox/state.json` (done/snooze). PR checks are cached for 10 minutes in the same folder.
-- **Upstream PRs are skipped.** Anything under `NousResearch/` is waiting on maintainers.
-- **Each source fails soft.** If X Studio is not running, its items are missing; the rest still show.
-- **Tests:** `python3 -m unittest discover -s tests`. The page harness is `harness/index.html`; save `hermes inbox --json > harness/live.json` first.
+```bash
+hermes inbox                       # the list
+hermes inbox --source crons        # one source
+hermes inbox --json                # for tools
+hermes inbox done ID               # hide until it changes
+hermes inbox snooze ID 24          # hide for 24 h
+hermes inbox add "Title" [...]     # post a card
+```
+
+## Settings (optional)
+
+`~/.hermes/inbox.json`:
+
+```json
+{
+  "sources": { "prs": false },
+  "ignore_repos": ["me/old-experiment"],
+  "stale_pr_days": 30,
+  "xstudio_url": "http://127.0.0.1:3417"
+}
+```
+
+## What it reads and writes
+
+- **Reads:**
+  - each profile's `state.db`: session titles, timestamps, and the last assistant reply, which is used only to tell how the session ended;
+  - `cron/jobs.json`;
+  - Key Doctor's and Vitals' JSON output, if those plugins are installed;
+  - `gh search prs --author @me`, if `gh` is signed in;
+  - the X Studio URL, if you set one.
+- **Writes:**
+  - `~/.local/state/hermes-inbox/`: done/snooze marks and a 10-minute PR cache;
+  - `~/.hermes/inbox/`: posted cards.
+- **Never:** it doesn't send anything anywhere, and it doesn't read tokens.
+
+Each source fails soft. If one can't be read, the others still show, with a one-line note.
+
+## Develop
+
+```bash
+python3 -m unittest discover -s tests     # 18 tests, no Hermes needed
+python3 hermes_inbox.py                   # runs without Hermes's CLI
+```
+
+The page harness is `harness/index.html`, using a mock of `@hermes/plugin-sdk`. Save `hermes inbox --json > harness/live.json` first.
+
+## License
+
+MIT

@@ -38,7 +38,16 @@ HOME = Path.home()
 HERMES = Path(os.environ.get("HERMES_ROOT", HOME / ".hermes"))
 STATE = Path(os.environ.get("XDG_STATE_HOME", HOME / ".local" / "state")) / "hermes-inbox" / "state.json"
 HERMES_PY = HERMES / "hermes-agent" / "venv" / "bin" / "python"
-X_STUDIO = os.environ.get("HERMES_INBOX_XSTUDIO", "http://127.0.0.1:3417")
+FILED = HERMES / "inbox"          # cards that Bots, crons and scripts post with `hermes inbox add`
+CONFIG = HERMES / "inbox.json"    # optional settings, see README
+
+
+def config() -> dict:
+    """{"xstudio_url": "...", "ignore_repos": ["owner/repo", ...], "stale_pr_days": 30, "sources": {"prs": false}}"""
+    try:
+        return json.loads(CONFIG.read_text())
+    except (OSError, ValueError):
+        return {}
 PRIORITY = {"now": 0, "today": 1, "later": 2}
 
 # Session endings, from ~/hermes-session-health (first match wins). Approximate by design.
@@ -69,6 +78,21 @@ def stamp(value) -> float:
     return float(value) if isinstance(value, (int, float)) else iso_ts(value)
 
 
+def when(ts: float) -> str:
+    return time.strftime("%b %d %H:%M", time.localtime(ts)) if ts else "unknown"
+
+
+WHY = {
+    "needs sign-in": "Its last reply asked you to sign in somewhere. It can't go on until you do.",
+    "waiting on your approval": "It stopped at a step that needs your OK.",
+    "missing a tool": "It needed a tool this session doesn't have.",
+    "hit a limit": "It ran out of turns, time or budget before finishing.",
+    "a site refused it": "A site refused or rate-limited it.",
+    "screen problem": "It couldn't see or reach the screen.",
+    "asked you a question": "It ended on a question and you haven't opened the chat since.",
+}
+
+
 def ending(text: str) -> str:
     for name, pattern in ENDINGS:
         if re.search(pattern, text or "", re.I | re.M):
@@ -89,6 +113,10 @@ def session_item(profile: str, bot: str, s: dict, last_reply: str, now: float) -
     title = (s.get("title") or "Untitled session").strip()[:90]
     return {"id": f"session:{profile}:{s['id']}", "source": "sessions", "priority": priority,
             "title": f"{bot} {kind}", "detail": f"“{title}”", "at": s.get("last_activity_at") or now,
+            "why": WHY.get(kind, ""),
+            "facts": [["Bot", f"{bot} ({profile})"], ["Last active", when(s.get("last_activity_at") or 0)],
+                      ["Opened by you", when(s["last_read_at"]) if s.get("last_read_at") else "never"]],
+            "more": [{"kind": "command", "label": "Copy resume command", "value": f"hermes -p {profile} chat --resume {s['id']}"}],
             "action": {"kind": "session", "label": "Open chat", "value": f"hermes -p {profile} chat --resume {s['id']}",
                        "session": s["id"], "profile": profile}}
 
@@ -99,14 +127,19 @@ def pr_item(pr: dict) -> dict | None:
         return None  # upstream: waiting on maintainers, nothing for you to do here
     cat = pr.get("cat")
     if cat == "ready":
-        stale = (pr.get("now") or time.time()) - (pr.get("at") or 0) > 30 * 86400  # untouched a month: a paused project, not a to-do
+        stale = (pr.get("now") or time.time()) - (pr.get("at") or 0) > pr.get("stale_days", 30) * 86400  # untouched a month: a paused project, not a to-do
         title, priority = f"Ready to merge: {repo.split('/')[1]} #{n}", "later" if stale else "today"
     elif cat in ("conflict", "failing-checks"):
         title, priority = f"{'Conflicts' if cat == 'conflict' else 'Checks failing'}: {repo.split('/')[1]} #{n}", "later"
     else:
         return None
+    why = {"ready": "Checks pass and it merges cleanly.", "conflict": "main moved on; it needs a rebase before it can merge.",
+           "failing-checks": "One or more checks failed."}[cat]
     return {"id": f"pr:{repo}#{n}", "source": "prs", "priority": priority, "title": title, "detail": pr.get("title", "")[:90],
-            "at": pr.get("at") or 0, "action": {"kind": "url", "label": "Open PR", "value": pr["url"]}}
+            "at": pr.get("at") or 0, "why": why + (" Untouched for a month, so it's parked under Later." if cat == "ready" and priority == "later" else ""),
+            "facts": [["Repo", repo], ["Title", pr.get("title", "")], ["Last update", when(pr.get("at") or 0)]],
+            "more": [{"kind": "command", "label": "Copy checkout command", "value": f"gh pr checkout {n} -R {repo}"}],
+            "action": {"kind": "url", "label": "Open PR", "value": pr["url"]}}
 
 
 def classify_pr(d: dict) -> str:
@@ -141,6 +174,8 @@ def collapse_sessions(items: list[dict]) -> list[dict]:
         top = dict(group[0])
         if len(group) > 1:
             top["detail"] += f"  (also {len(group) - 1} earlier time{'s' if len(group) > 2 else ''})"
+            top["facts"] = list(top.get("facts") or []) + [["Also happened", ", ".join(when(g.get("at") or 0) for g in group[1:])]]
+            top["why"] = (top.get("why") or "") + " It's a recurring job, so this will keep happening until it's fixed."
         out.append(top)
     return out
 
@@ -215,7 +250,7 @@ def src_keys(now: float) -> list[dict]:
 
 
 def src_vitals(now: float) -> list[dict]:
-    data = run_json(["hermes", "-p", "ceo", "vitals", "--json"])
+    data = run_json(["hermes", "vitals", "--json"])  # the Vitals plugin reads every Bot
     if not isinstance(data, dict):
         return []
     items = []
@@ -225,6 +260,11 @@ def src_vitals(now: float) -> list[dict]:
                 continue
             items.append({"id": f"vitals:{bot['profile']}:{a.get('rule') or a['finding']}", "source": "vitals", "priority": "now",
                           "title": f"{bot.get('name') or bot['profile']}: {a['finding']}", "detail": a.get("treatment", ""),
+                          "why": f"Reading {a.get('reading', '?')}; normal is {a.get('normal', '?')}.",
+                          "facts": [["Seen in", f"{(a.get('evidence') or {}).get('file', '?')} · {(a.get('evidence') or {}).get('source', '?')}"],
+                                    ["Count", str((a.get("evidence") or {}).get("count", "?"))],
+                                    ["Last seen", when(stamp((a.get("evidence") or {}).get("last")))]],
+                          "more": [{"kind": "command", "label": "Copy log search", "value": f"grep -n {(a.get('evidence') or {}).get('source', '')} {'~/.hermes' if bot['profile'] == 'default' else '~/.hermes/profiles/' + bot['profile']}/logs/{(a.get('evidence') or {}).get('file', 'errors.log')} | tail -20"}],
                           "at": stamp((a.get("evidence") or {}).get("last")), "action": {"kind": "open", "label": "Vitals", "value": "/vitals"}})
     return items
 
@@ -268,6 +308,9 @@ def src_crons(now: float) -> list[dict]:
             failed = str(j.get("last_status") or "").lower() in ("error", "failed", "failure") or (j.get("failure_streak") or 0) > 0
             if failed:
                 items.append({"id": f"cron:{profile}:{j.get('id')}:{j.get('last_run_at')}", "source": "crons", "priority": "now",
+                              "why": f"Failed {j.get('failure_streak') or 1} time(s) in a row." + (f" Last error: {str(j.get('last_error'))[:160]}" if j.get("last_error") else ""),
+                              "facts": [["Schedule", str(j.get("schedule") or j.get("cron") or "?")], ["Last run", when(stamp(j.get("last_run_at")))],
+                                        ["Next run", when(stamp(j.get("next_run_at")))]],
                               "title": f"Cron failed: {j.get('name') or j.get('id')}", "detail": f"{profile}" + (f" · {str(j.get('last_error'))[:80]}" if j.get("last_error") else ""),
                               "at": stamp(j.get("last_run_at")), "action": {"kind": "command", "label": "Runs", "value": f"hermes -p {profile} cron runs {j.get('id')}"}})
     return items
@@ -294,12 +337,13 @@ def _src_prs(now: float) -> list[dict]:
     listing = run_json(["gh", "search", "prs", "--author", "@me", "--state", "open", "--json", "repository,number,title,url,updatedAt", "--limit", "100"], 60)
     if not isinstance(listing, list):
         return []
-    mine = [p for p in listing if not p["repository"]["nameWithOwner"].startswith("NousResearch/")]
+    ignore = set(config().get("ignore_repos") or [])
+    mine = [p for p in listing if not p["repository"]["nameWithOwner"].startswith("NousResearch/") and p["repository"]["nameWithOwner"] not in ignore]
 
     def one(p: dict) -> dict | None:
         repo = p["repository"]["nameWithOwner"]
         d = run_json(["gh", "pr", "view", str(p["number"]), "-R", repo, "--json", "isDraft,baseRefName,mergeable,mergeStateStatus,statusCheckRollup"], 30) or {}
-        return pr_item({"repo": repo, "n": p["number"], "title": p["title"], "url": p["url"], "cat": classify_pr(d), "now": now,
+        return pr_item({"repo": repo, "n": p["number"], "title": p["title"], "url": p["url"], "cat": classify_pr(d), "now": now, "stale_days": config().get("stale_pr_days", 30),
                         "at": iso_ts(p.get("updatedAt"))})
 
     with ThreadPoolExecutor(max_workers=8) as pool:  # one gh call per PR; in parallel it's seconds, not a minute
@@ -308,8 +352,12 @@ def _src_prs(now: float) -> list[dict]:
 
 
 def src_review(now: float) -> list[dict]:
+    """Optional: Hermes X Studio drafts in REVIEW. Off unless "xstudio_url" is set in inbox.json."""
+    base = config().get("xstudio_url") or os.environ.get("HERMES_INBOX_XSTUDIO")
+    if not base:
+        return []
     try:
-        with urllib.request.urlopen(f"{X_STUDIO}/api/state", timeout=5) as r:
+        with urllib.request.urlopen(f"{base}/api/state", timeout=5) as r:
             data = json.loads(r.read())["data"]
     except Exception:  # X Studio not running: nothing to report
         return []
@@ -319,11 +367,72 @@ def src_review(now: float) -> list[dict]:
             continue
         items.append({"id": f"review:{it['id']}", "source": "review", "priority": "today", "title": f"Review: {it.get('title', '')[:70]}",
                       "detail": f"{it.get('contentKey', '')} in Hermes X Studio", "at": iso_ts(it.get("updatedAt")),
-                      "action": {"kind": "url", "label": "Open X Studio", "value": X_STUDIO}})
+                      "why": "A draft is waiting for you to approve, change or drop it." + (" It still has no visual." if it.get("visualStatus") == "MISSING" else ""),
+                      "facts": [["Hook", str(it.get("hook") or "")[:140]], ["Type", str(it.get("contentType") or "")],
+                                ["Checked", str(it.get("verificationStatus") or "").lower()], ["Visual", str(it.get("visualStatus") or "").lower()],
+                                ["Created", when(iso_ts(it.get("createdAt")))]],
+                      "action": {"kind": "url", "label": "Open X Studio", "value": base}})
     return items
 
 
-SOURCES = {"keys": src_keys, "vitals": src_vitals, "sessions": src_sessions, "crons": src_crons, "prs": src_prs, "review": src_review}
+PRIORITIES = tuple(PRIORITY)
+
+
+def filed_card(raw: dict, now: float) -> dict | None:
+    """A card a Bot or script posted. Expired or malformed cards are skipped."""
+    if not isinstance(raw, dict) or not raw.get("id") or not raw.get("title"):
+        return None
+    if raw.get("expires_at") and raw["expires_at"] < now:
+        return None
+    action = {"kind": "command", "label": "Copy command", "value": raw["command"]} if raw.get("command") else {"kind": "none", "label": "", "value": ""}
+    if raw.get("url"):
+        action = {"kind": "url", "label": raw.get("label") or "Open", "value": raw["url"]}
+    elif raw.get("session"):
+        action = {"kind": "session", "label": "Open chat", "session": raw["session"], "profile": raw.get("profile") or "default",
+                  "value": f"hermes -p {raw.get('profile') or 'default'} chat --resume {raw['session']}"}
+    return {"id": f"filed:{raw['id']}", "source": "filed", "priority": raw.get("priority") if raw.get("priority") in PRIORITIES else "today",
+            "title": str(raw["title"])[:120], "detail": str(raw.get("detail") or "")[:240], "at": raw.get("at") or now,
+            "why": str(raw.get("why") or (f"Posted by {raw['from']}." if raw.get("from") else "")),
+            "facts": [[str(k), str(v)] for k, v in (raw.get("facts") or {}).items()][:8], "from": raw.get("from"), "action": action}
+
+
+def src_filed(now: float) -> list[dict]:
+    items = []
+    for f in sorted(FILED.glob("*.json")) if FILED.is_dir() else []:
+        try:
+            card = filed_card(json.loads(f.read_text()), now)
+        except (OSError, ValueError):
+            continue
+        if card:
+            items.append(card)
+    return items
+
+
+def file_card(title: str, *, detail: str = "", priority: str = "today", url: str = "", command: str = "", session: str = "",
+              profile: str = "", why: str = "", sender: str = "", key: str = "", hours: float = 0) -> dict:
+    """Write one card to ~/.hermes/inbox/. Same key = same card (updated in place), so a cron can re-post without duplicates."""
+    now = time.time()
+    key = re.sub(r"[^a-zA-Z0-9_.-]+", "-", key or f"{sender or 'card'}-{title}")[:80].strip("-")
+    raw = {"id": key, "title": title, "detail": detail, "priority": priority if priority in PRIORITIES else "today", "at": now,
+           "url": url, "command": command, "session": session, "profile": profile, "why": why, "from": sender,
+           "expires_at": now + hours * 3600 if hours else None}
+    FILED.mkdir(parents=True, exist_ok=True)
+    (FILED / f"{key}.json").write_text(json.dumps({k: v for k, v in raw.items() if v not in ("", None)}, indent=1))
+    return {"ok": True, "id": f"filed:{key}"}
+
+
+def remove_card(item_id: str) -> bool:
+    """Done on a filed card deletes its file, so the sender can post it again later."""
+    if not item_id.startswith("filed:"):
+        return False
+    f = FILED / f"{item_id[6:]}.json"
+    if f.exists():
+        f.unlink()
+        return True
+    return False
+
+
+SOURCES = {"filed": src_filed, "keys": src_keys, "vitals": src_vitals, "sessions": src_sessions, "crons": src_crons, "prs": src_prs, "review": src_review}
 
 
 def load_state() -> dict:
@@ -341,8 +450,9 @@ def save_state(state: dict) -> None:
 def collect(names: list[str] | None = None) -> dict:
     now = time.time()
     items, errors, counts = [], {}, {}
+    enabled = config().get("sources") or {}
     for name, fn in SOURCES.items():
-        if names and name not in names:
+        if (names and name not in names) or enabled.get(name) is False:
             continue
         try:
             got = fn(now)
@@ -361,27 +471,66 @@ def render(data: dict) -> str:
     lines = [f"Hermes Inbox: {s['now']} now · {s['today']} today · {s['later']} later" + (f"  ({data['hidden']} done/snoozed)" if data["hidden"] else "")]
     for it in data["items"]:
         lines.append(f"  [{it['priority']:>5}] {it['title']} — {it['detail']}")
-        lines.append(f"          {it['action']['label']}: {it['action']['value']}")
+        if it["action"].get("value"):
+            lines.append(f"          {it['action']['label']}: {it['action']['value']}")
     for k, v in data["errors"].items():
         lines.append(f"  (couldn't read {k}: {v})")
     return "\n".join(lines)
 
 
+def add_arguments(ap) -> None:
+    """Shared by the standalone script and `hermes inbox`."""
+    ap.add_argument("action", nargs="?", default="list", choices=["list", "add", "done", "snooze", "reset"])
+    ap.add_argument("target", nargs="*", help="add TITLE | done ID | snooze ID HOURS")
+    ap.add_argument("--json", action="store_true", help="one-line JSON (the Desktop page reads this)")
+    ap.add_argument("--source", action="append", help="only this source: " + ", ".join(SOURCES))
+    add = ap.add_argument_group("add (post a card, e.g. from a Bot or a cron job)")
+    add.add_argument("--detail", default="")
+    add.add_argument("--priority", default="today", choices=list(PRIORITY))
+    add.add_argument("--url", default="")
+    add.add_argument("--command", dest="card_command", default="")
+    add.add_argument("--session", default="", help="session id to open; with --profile")
+    add.add_argument("--profile", dest="card_profile", default="")
+    add.add_argument("--why", default="")
+    add.add_argument("--from", dest="sender", default="", help="who is asking, e.g. the Bot's name")
+    add.add_argument("--key", default="", help="stable id: posting the same key again updates the card")
+    add.add_argument("--hours", type=float, default=0, help="drop the card after this many hours")
+
+
+def dispatch(a) -> str:
+    """Run one action; returns what to print."""
+    action, target = getattr(a, "action", "list"), getattr(a, "target", None) or []
+    if action == "add":
+        if not target:
+            raise ValueError('usage: hermes inbox add "Title" [--detail ...] [--priority now|today|later] [--url ...]')
+        return json.dumps(file_card(" ".join(target), detail=a.detail, priority=a.priority, url=a.url, command=a.card_command,
+                                    session=a.session, profile=a.card_profile, why=a.why, sender=a.sender, key=a.key, hours=a.hours))
+    if action in ("done", "snooze", "reset"):
+        st = load_state()
+        if action == "done" and target:
+            if not remove_card(target[0]):
+                st[target[0]] = {"done": True, "at": time.time()}
+        elif action == "snooze" and len(target) >= 2:
+            st[target[0]] = {"snooze_until": time.time() + float(target[1]) * 3600}
+        elif action == "reset":
+            st = {}
+        else:
+            raise ValueError("usage: hermes inbox done ID | snooze ID HOURS | reset")
+        save_state(st)
+        return json.dumps({"ok": True})
+    data = collect(getattr(a, "source", None))
+    return json.dumps(data, separators=(",", ":")) if getattr(a, "json", False) else render(data)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Everything your Hermes Bots and tools need from you")
-    ap.add_argument("cmd", nargs="?", default="list", choices=["list", "done", "snooze", "reset"])
-    ap.add_argument("args", nargs="*")
-    ap.add_argument("--json", action="store_true")
-    ap.add_argument("--source", action="append")
+    add_arguments(ap)
     a = ap.parse_args()
-    if a.cmd == "done" and a.args:
-        st = load_state(); st[a.args[0]] = {"done": True, "at": time.time()}; save_state(st); print(json.dumps({"ok": True})); return 0
-    if a.cmd == "snooze" and len(a.args) >= 2:
-        st = load_state(); st[a.args[0]] = {"snooze_until": time.time() + float(a.args[1]) * 3600}; save_state(st); print(json.dumps({"ok": True})); return 0
-    if a.cmd == "reset":
-        save_state({}); print(json.dumps({"ok": True})); return 0
-    data = collect(a.source)
-    print(json.dumps(data, separators=(",", ":")) if a.json else render(data))
+    try:
+        print(dispatch(a))
+    except ValueError as e:
+        print(e, file=sys.stderr)
+        return 2
     return 0
 
 
