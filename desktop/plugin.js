@@ -170,7 +170,7 @@ function Go({ a }) {
   if (a.kind === 'open' || /^\/[a-z-]+$/.test(a.value)) return jsx('button', { type: 'button', className: 'go', onClick: () => host.navigate(a.value), children: label })
   return jsx('button', { type: 'button', className: 'go', title: a.value,
     onClick: () => navigator.clipboard?.writeText(a.value).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }),
-    children: copied ? 'Copied ✓' : `Copy ${a.label.toLowerCase()} →` })
+    children: copied ? 'Copied ✓' : `${/^copy\b/i.test(a.label) ? a.label : `Copy ${a.label.toLowerCase()}`} →` })
 }
 
 // Folded sections are remembered per viewer (a convenience; the page works without storage).

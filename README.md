@@ -2,6 +2,8 @@
 
 **Everything your Hermes Bots and tools are waiting on you for, in one list.**
 
+![Hermes Agent Inbox in Hermes Desktop: Now, Today and Later flash cards](docs/hero.png)
+
 You run several Bots, cron jobs and background tasks. When one of them needs you, the signal is scattered:
 - a session that ended on "please sign in";
 - a cron job that failed overnight;
@@ -42,6 +44,10 @@ Chats show only the session title and how the session ended, never the messages.
 - **Open chat →** jumps straight to the stuck session in the right Bot.
 - **Done** hides a card until it changes. **Snooze** hides it for a day; expanded cards also offer a week.
 - **A `▣` status-bar chip:** `2 waiting on you`.
+
+![A card expanded: why it's there, the facts, and copy buttons](docs/card-expanded.png)
+
+*Screenshots use sample data (`harness/demo.json`).*
 
 ## Bots can ask you for things
 

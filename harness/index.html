@@ -22,4 +22,11 @@ plugin.register(ctx)
 window.__registered = reg.map((c) => ({ id: c.id, area: c.area, data: c.data && { path: c.data.path, label: c.data.label } }))
 createRoot(document.getElementById('root')).render(reg.find((c) => c.area === 'routes').render())
 createRoot(document.getElementById('chip')).render(reg.find((c) => c.area === 'statusBar.right').render())
+// ?expand=TEXT opens the first card whose title contains TEXT; ?fold=later folds a section (for screenshots).
+const q = new URLSearchParams(location.search)
+const later = () => {
+  if (q.get('fold')) [...document.querySelectorAll('.lane-title')].filter((b) => b.textContent.toLowerCase().includes(q.get('fold'))).forEach((b) => b.click())
+  if (q.get('expand')) [...document.querySelectorAll('.card')].find((c) => c.textContent.includes(q.get('expand')))?.click()
+}
+setTimeout(later, 900)
 </script></body></html>

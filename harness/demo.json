@@ -1,0 +1,397 @@
+{
+ "demo": true,
+ "items": [
+  {
+   "id": "session:scout:s1",
+   "source": "sessions",
+   "priority": "now",
+   "title": "Scout needs sign-in",
+   "detail": "\u201cDaily competitor scan \u00b7 Oct 15 08:00\u201d  (also 2 earlier times)",
+   "ago": 2400,
+   "why": "Its last reply asked you to sign in somewhere. It can't go on until you do. It's a recurring job, so this will keep happening until it's fixed.",
+   "facts": [
+    [
+     "Bot",
+     "Scout (scout)"
+    ],
+    [
+     "Last active",
+     "Oct 15 08:02"
+    ],
+    [
+     "Opened by you",
+     "never"
+    ],
+    [
+     "Also happened",
+     "Oct 14 08:01, Oct 13 08:03"
+    ]
+   ],
+   "more": [
+    {
+     "kind": "command",
+     "label": "Copy resume command",
+     "value": "hermes -p scout chat --resume s1"
+    }
+   ],
+   "action": {
+    "kind": "session",
+    "label": "Open chat",
+    "value": "hermes -p scout chat --resume s1",
+    "session": "s1",
+    "profile": "scout"
+   }
+  },
+  {
+   "id": "cron:default:backup",
+   "source": "crons",
+   "priority": "now",
+   "title": "Cron failed: nightly-backup",
+   "detail": "default \u00b7 rsync: connection timed out",
+   "ago": 21600,
+   "why": "Failed 2 time(s) in a row. Last error: rsync: connection timed out",
+   "facts": [
+    [
+     "Schedule",
+     "0 3 * * *"
+    ],
+    [
+     "Last run",
+     "Oct 15 03:00"
+    ],
+    [
+     "Next run",
+     "Oct 16 03:00"
+    ]
+   ],
+   "action": {
+    "kind": "command",
+    "label": "Runs",
+    "value": "hermes -p default cron runs backup"
+   }
+  },
+  {
+   "id": "keys:openrouter:a1:benched",
+   "source": "keys",
+   "priority": "now",
+   "title": "openrouter login benched",
+   "detail": "atlas + 2 more Bots",
+   "ago": 0,
+   "action": {
+    "kind": "command",
+    "label": "Copy fix",
+    "value": "hermes -p atlas auth reset openrouter a1"
+   }
+  },
+  {
+   "id": "vitals:ledger:vision",
+   "source": "vitals",
+   "priority": "now",
+   "title": "Ledger: Image analysis failing",
+   "detail": "Point vision at a model that can see images",
+   "ago": 7200,
+   "why": "Reading 14 log lines this window; normal is 0.",
+   "facts": [
+    [
+     "Seen in",
+     "errors.log \u00b7 tools.vision_tools"
+    ],
+    [
+     "Count",
+     "14"
+    ],
+    [
+     "Last seen",
+     "Oct 15 07:41"
+    ]
+   ],
+   "action": {
+    "kind": "open",
+    "label": "Vitals",
+    "value": "/vitals"
+   }
+  },
+  {
+   "id": "filed:thumb",
+   "source": "filed",
+   "priority": "today",
+   "title": "Pick a thumbnail for Friday's video",
+   "detail": "Three options are ready; the deadline is Thursday noon",
+   "ago": 1500,
+   "from": "Scribe",
+   "why": "Posted by Scribe.",
+   "facts": [
+    [
+     "Options",
+     "3"
+    ],
+    [
+     "Due",
+     "Thu 12:00"
+    ]
+   ],
+   "action": {
+    "kind": "url",
+    "label": "Open",
+    "value": "https://example.com/thumbnails"
+   }
+  },
+  {
+   "id": "session:atlas:s2",
+   "source": "sessions",
+   "priority": "today",
+   "title": "Atlas asked you a question",
+   "detail": "\u201cPlan next week's releases\u201d",
+   "ago": 10800,
+   "why": "It ended on a question and you haven't opened the chat since.",
+   "facts": [
+    [
+     "Bot",
+     "Atlas (atlas)"
+    ],
+    [
+     "Last active",
+     "Oct 15 06:10"
+    ],
+    [
+     "Opened by you",
+     "never"
+    ]
+   ],
+   "action": {
+    "kind": "session",
+    "label": "Open chat",
+    "value": "hermes -p atlas chat --resume s2",
+    "session": "s2",
+    "profile": "atlas"
+   }
+  },
+  {
+   "id": "filed:newsletter",
+   "source": "filed",
+   "priority": "today",
+   "title": "Approve the newsletter draft",
+   "detail": "Draft 3 is ready; two links need checking",
+   "ago": 18000,
+   "from": "Scribe",
+   "why": "Posted by Scribe.",
+   "action": {
+    "kind": "url",
+    "label": "Open",
+    "value": "https://example.com/newsletter/3"
+   }
+  },
+  {
+   "id": "session:ledger:s3",
+   "source": "sessions",
+   "priority": "today",
+   "title": "Ledger hit a limit",
+   "detail": "\u201cReconcile September invoices\u201d",
+   "ago": 32400,
+   "why": "It ran out of turns, time or budget before finishing.",
+   "facts": [
+    [
+     "Bot",
+     "Ledger (ledger)"
+    ]
+   ],
+   "action": {
+    "kind": "session",
+    "label": "Open chat",
+    "value": "hermes -p ledger chat --resume s3",
+    "session": "s3",
+    "profile": "ledger"
+   }
+  },
+  {
+   "id": "pr:acme/hermes-weather#12",
+   "source": "prs",
+   "priority": "today",
+   "title": "Ready to merge: hermes-weather #12",
+   "detail": "Add hourly forecast card",
+   "ago": 172800,
+   "why": "Checks pass and it merges cleanly.",
+   "facts": [
+    [
+     "Repo",
+     "acme/hermes-weather"
+    ],
+    [
+     "Title",
+     "Add hourly forecast card"
+    ]
+   ],
+   "more": [
+    {
+     "kind": "command",
+     "label": "Copy checkout command",
+     "value": "gh pr checkout 12 -R acme/hermes-weather"
+    }
+   ],
+   "action": {
+    "kind": "url",
+    "label": "Open PR",
+    "value": "https://github.com/acme/hermes-weather/pull/12"
+   }
+  },
+  {
+   "id": "pr:acme/agent-dashboard#48",
+   "source": "prs",
+   "priority": "later",
+   "title": "Conflicts: agent-dashboard #48",
+   "detail": "Dark mode for the status page",
+   "ago": 259200,
+   "why": "main moved on; it needs a rebase before it can merge.",
+   "facts": [
+    [
+     "Repo",
+     "acme/agent-dashboard"
+    ],
+    [
+     "Title",
+     "Dark mode for the status page"
+    ]
+   ],
+   "more": [
+    {
+     "kind": "command",
+     "label": "Copy checkout command",
+     "value": "gh pr checkout 48 -R acme/agent-dashboard"
+    }
+   ],
+   "action": {
+    "kind": "url",
+    "label": "Open PR",
+    "value": "https://github.com/acme/agent-dashboard/pull/48"
+   }
+  },
+  {
+   "id": "pr:acme/hermes-weather#9",
+   "source": "prs",
+   "priority": "later",
+   "title": "Conflicts: hermes-weather #9",
+   "detail": "Cache geocoding results",
+   "ago": 518400,
+   "why": "main moved on; it needs a rebase before it can merge.",
+   "facts": [
+    [
+     "Repo",
+     "acme/hermes-weather"
+    ],
+    [
+     "Title",
+     "Cache geocoding results"
+    ]
+   ],
+   "more": [
+    {
+     "kind": "command",
+     "label": "Copy checkout command",
+     "value": "gh pr checkout 9 -R acme/hermes-weather"
+    }
+   ],
+   "action": {
+    "kind": "url",
+    "label": "Open PR",
+    "value": "https://github.com/acme/hermes-weather/pull/9"
+   }
+  },
+  {
+   "id": "pr:acme/notes-sync#4",
+   "source": "prs",
+   "priority": "later",
+   "title": "Conflicts: notes-sync #4",
+   "detail": "Sync tags both ways",
+   "ago": 691200,
+   "why": "main moved on; it needs a rebase before it can merge.",
+   "facts": [
+    [
+     "Repo",
+     "acme/notes-sync"
+    ],
+    [
+     "Title",
+     "Sync tags both ways"
+    ]
+   ],
+   "more": [
+    {
+     "kind": "command",
+     "label": "Copy checkout command",
+     "value": "gh pr checkout 4 -R acme/notes-sync"
+    }
+   ],
+   "action": {
+    "kind": "url",
+    "label": "Open PR",
+    "value": "https://github.com/acme/notes-sync/pull/4"
+   }
+  },
+  {
+   "id": "pr:acme/old-experiment#2",
+   "source": "prs",
+   "priority": "later",
+   "title": "Ready to merge: old-experiment #2",
+   "detail": "Try a websocket transport",
+   "ago": 3888000,
+   "why": "Checks pass and it merges cleanly.",
+   "facts": [
+    [
+     "Repo",
+     "acme/old-experiment"
+    ],
+    [
+     "Title",
+     "Try a websocket transport"
+    ]
+   ],
+   "more": [
+    {
+     "kind": "command",
+     "label": "Copy checkout command",
+     "value": "gh pr checkout 2 -R acme/old-experiment"
+    }
+   ],
+   "action": {
+    "kind": "url",
+    "label": "Open PR",
+    "value": "https://github.com/acme/old-experiment/pull/2"
+   }
+  },
+  {
+   "id": "pr:acme/agent-dashboard#31",
+   "source": "prs",
+   "priority": "later",
+   "title": "Ready to merge: agent-dashboard #31",
+   "detail": "Export the board as CSV",
+   "ago": 5184000,
+   "why": "Checks pass and it merges cleanly.",
+   "facts": [
+    [
+     "Repo",
+     "acme/agent-dashboard"
+    ],
+    [
+     "Title",
+     "Export the board as CSV"
+    ]
+   ],
+   "more": [
+    {
+     "kind": "command",
+     "label": "Copy checkout command",
+     "value": "gh pr checkout 31 -R acme/agent-dashboard"
+    }
+   ],
+   "action": {
+    "kind": "url",
+    "label": "Open PR",
+    "value": "https://github.com/acme/agent-dashboard/pull/31"
+   }
+  }
+ ],
+ "counts": {},
+ "hidden": 0,
+ "errors": {},
+ "summary": {}
+}
