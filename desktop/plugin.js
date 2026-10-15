@@ -37,14 +37,30 @@ function parseCliJson(output) {
 // A call that never settles (gateway restarted mid-request) must not leave `inflight` set forever.
 const withDeadline = (promise, ms) => Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timed out waiting for hermes inbox')), ms))])
 
-async function runInbox(args) {
+// One `hermes …` run through the local gateway; returns {route, output}.
+async function runHermes(argv) {
   const route = await resolveRoute()
   const res = await withDeadline(host.requestProfile(route, 'cli.exec',
-    { argv: ['--profile', route.targetProfile, 'inbox', ...args], timeout: CLI_TIMEOUT_MS / 1000 }, CLI_TIMEOUT_MS + 5000), CLI_TIMEOUT_MS + 10000)
+    { argv: ['--profile', route.targetProfile, ...argv], timeout: CLI_TIMEOUT_MS / 1000 }, CLI_TIMEOUT_MS + 5000), CLI_TIMEOUT_MS + 10000)
   if (res && res.blocked) throw new Error(res.hint || 'cli.exec blocked')
-  const payload = parseCliJson(res && res.output)
+  return { route, output: String((res && res.output) || '') }
+}
+
+async function runInbox(args) {
+  const { output } = await runHermes(['inbox', ...args])
+  const payload = parseCliJson(output)
   if (payload.error) throw new Error(payload.error)
   return payload
+}
+
+// Continue a Claude Code / Codex session as a Hermes chat: `hermes sessions import` copies it into the
+// Hermes store (prints "Imported … as <id>"), then the Desktop opens that session.
+async function continueInHermes(m) {
+  const { route, output } = await runHermes(['sessions', 'import', '--from', m.app, m.path])
+  const id = (output.match(/\bas\s+([A-Za-z0-9_.-]+)/) || [])[1]
+  if (!id) throw new Error(output.trim().split('\n').slice(-2).join(' ') || 'import printed no session id')
+  await host.openSession(id, { profile: route.targetProfile, intent: 'tab' })
+  return id
 }
 
 // One shared poller so the page and the status chip never double-fetch.
@@ -157,7 +173,7 @@ const CSS = `
 .hin .foot{display:flex;align-items:center;gap:4px;margin-top:auto}
 .hin .foot button,.hin .foot a{font:11px system-ui,sans-serif;border:0;background:transparent;color:var(--ui-text-tertiary,#a6a4b0);padding:2px 5px;border-radius:6px;cursor:pointer;text-decoration:none;white-space:nowrap}
 .hin .foot button:hover,.hin .foot a:hover{background:var(--chrome-action-hover,#303038);color:var(--ui-text-primary,#eeedf2)}
-.hin .foot .go{margin-left:auto;color:color-mix(in srgb,var(--a) 75%,var(--ui-text-primary,#eeedf2));font-weight:600}.hin .foot .go:hover{color:var(--ui-text-primary,#eeedf2);background:color-mix(in srgb,var(--a) 22%,transparent)}.hin .foot .done{color:color-mix(in srgb,var(--ui-green,#3fb950) 80%,#888)}.hin .foot .done:hover{color:var(--ui-green,#3fb950);background:color-mix(in srgb,var(--ui-green,#3fb950) 14%,transparent)}.hin .foot .snooze{color:color-mix(in srgb,var(--ui-yellow,#d29922) 80%,#888)}.hin .foot .snooze:hover{color:var(--ui-yellow,#d29922);background:color-mix(in srgb,var(--ui-yellow,#d29922) 14%,transparent)}
+.hin .foot .import{margin-left:auto;color:var(--ui-accent,#4a84fe)}.hin .foot .import + .go{margin-left:0}.hin .foot .go{margin-left:auto;color:color-mix(in srgb,var(--a) 75%,var(--ui-text-primary,#eeedf2));font-weight:600}.hin .foot .go:hover{color:var(--ui-text-primary,#eeedf2);background:color-mix(in srgb,var(--a) 22%,transparent)}.hin .foot .done{color:color-mix(in srgb,var(--ui-green,#3fb950) 80%,#888)}.hin .foot .done:hover{color:var(--ui-green,#3fb950);background:color-mix(in srgb,var(--ui-green,#3fb950) 14%,transparent)}.hin .foot .snooze{color:color-mix(in srgb,var(--ui-yellow,#d29922) 80%,#888)}.hin .foot .snooze:hover{color:var(--ui-yellow,#d29922);background:color-mix(in srgb,var(--ui-yellow,#d29922) 14%,transparent)}
 .hin .head button{font-size:12px;padding:5px 12px;border-radius:7px;border:1px solid var(--ui-stroke-tertiary,#34343b);background:var(--ui-bg-quaternary,#24242b);color:inherit;cursor:pointer}
 .hin .head button:disabled{opacity:.5;cursor:default}
 .hin .empty{grid-column:1/-1;font-size:12px;color:var(--ui-text-quaternary,#6e7681);padding:4px 0 8px}
@@ -212,8 +228,19 @@ const FOLD_KEY = 'hermes-inbox.folded.v1'
 function loadFolded() { try { return JSON.parse(localStorage.getItem(FOLD_KEY) || '{}') } catch { return {} } }
 function saveFolded(v) { try { localStorage.setItem(FOLD_KEY, JSON.stringify(v)) } catch { /* fine */ } }
 
+function ImportBtn({ m }) {
+  const [state, setState] = useState('idle')
+  return jsx('button', { type: 'button', className: 'go import', disabled: state === 'busy', title: m.value,
+    onClick: () => {
+      setState('busy')
+      continueInHermes(m).then(() => setState('done')).catch((e) => { setState('idle'); host.notify?.({ kind: 'error', message: `Continue in Hermes: ${String((e && e.message) || e)}` }) })
+    },
+    children: state === 'busy' ? 'Importing…' : state === 'done' ? 'Opened in Hermes ✓' : 'Continue in Hermes →' })
+}
+
 function CopyBtn({ m }) {
   const [done, setDone] = useState(false)
+  if (m.kind === 'hermes-import') return null  // shown in the card foot instead
   return jsx('button', { type: 'button', title: m.value,
     onClick: () => navigator.clipboard?.writeText(m.value).then(() => { setDone(true); setTimeout(() => setDone(false), 1500) }),
     children: done ? 'Copied ✓' : m.label })
@@ -243,7 +270,9 @@ function Card({ it, color, open, onToggle }) {
         jsx('button', { type: 'button', className: 'done', title: 'Hide until it changes', onClick: () => clear(it, 'done'), children: '✓ Done' }),
         jsx('button', { type: 'button', className: 'snooze', title: 'Hide for a day', onClick: () => clear(it, 'snooze', 24), children: '◷ Snooze' }),
         open ? jsx('button', { type: 'button', className: 'snooze', title: 'Hide for a week', onClick: () => clear(it, 'snooze', 168), children: '1 week' }) : null,
-        jsx(Go, { a: it.action }),
+        ...((it.more || []).filter((m) => m.kind === 'hermes-import').map((m) => jsx(ImportBtn, { m }, 'import'))),
+        // With "Continue in Hermes" on the card, the copy-resume button only shows once the card is open.
+        (it.more || []).some((m) => m.kind === 'hermes-import') && !open ? null : jsx(Go, { a: it.action }),
       ] }),
     ],
   })

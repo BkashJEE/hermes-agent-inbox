@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0 — 2026-10-15
+
+- **Continue in Hermes →** on Claude Code and Codex cards: imports the session with `hermes sessions import` and opens it as a Hermes chat in the Desktop. The CLI prints the same command under each card.
+
 ## 0.4.1 — 2026-10-15
 
 - A session written to in the last 3 minutes (`active_grace_seconds`) is still running, so its open tool call is not reported as a permission prompt. Before, the session that ran `hermes inbox` itself showed up as waiting.

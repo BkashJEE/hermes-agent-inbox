@@ -37,6 +37,8 @@ Every card says **which Bot needs you** (or which Claude Code / Codex session).
 
 **Claude Code and Codex are their own tabs.** Nothing of theirs shows on the Hermes tab or in the status-bar count. Click the **Claude** or **Codex (ChatGPT)** tab and you get that agent's inbox: its sessions that are waiting on you, and, for Claude Code, the PRs its sessions opened. The first click turns that source on (`hermes inbox set claude off` turns it back off).
 
+**Continue in Hermes →** on a Claude or Codex card hands that session to Hermes: it runs `hermes sessions import` (the original file is only read), then opens the imported chat in the Desktop, so a Hermes Bot picks up where the other agent stopped. **Copy resume** copies the `claude --resume …` / `codex resume …` command instead.
+
 Chats show only the session title and how the session ended, never the messages. A daily cron that gets stuck every day shows as **one** card ("also 2 earlier times").
 
 ## In Hermes Desktop
@@ -125,7 +127,7 @@ Each source fails soft. If one can't be read, the others still show, with a one-
 ## Develop
 
 ```bash
-python3 -m unittest discover -s tests     # 27 tests, no Hermes needed
+python3 -m unittest discover -s tests     # 28 tests, no Hermes needed
 python3 hermes_inbox.py                   # runs without Hermes's CLI
 ```
 

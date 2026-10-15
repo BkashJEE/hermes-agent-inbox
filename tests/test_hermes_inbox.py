@@ -190,6 +190,12 @@ class Switch(unittest.TestCase):
 
 
 class Pending(unittest.TestCase):
+    def test_continue_in_hermes_action(self):
+        it = h.transcript_item("codex", "abc", "t", "assistant", "Want me to post it?", NOW, "/w", NOW, path="/home/me/.codex/sessions/x.jsonl")
+        m = it["more"][0]
+        self.assertEqual((m["kind"], m["app"], m["path"]), ("hermes-import", "codex", "/home/me/.codex/sessions/x.jsonl"))
+        self.assertIn("hermes sessions import --from codex", m["value"])
+
     def test_unanswered_tool_call_is_an_approval(self):
         it = h.transcript_item("claude", "s", "Deploy", "assistant", "", NOW, "/w", NOW, "waiting on your approval", [["Waiting on", "Bash: npm publish"]])
         self.assertEqual((it["priority"], it["title"], it["facts"][0]), ("now", "Claude waiting on your approval", ["Waiting on", "Bash: npm publish"]))

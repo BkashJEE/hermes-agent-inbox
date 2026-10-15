@@ -355,7 +355,7 @@ TAG = re.compile(r"<[^>]{1,40}>")
 
 
 def transcript_item(app: str, sid: str, title: str, last_role: str, last_text: str, at: float, cwd: str, now: float,
-                    kind: str | None = None, extra: list | None = None) -> dict | None:
+                    kind: str | None = None, extra: list | None = None, path: str = "") -> dict | None:
     """A Claude Code / Codex session is waiting on you when the assistant spoke last and ended stuck, on a question,
     on an offer, or (``kind`` given) on a tool call nobody answered — a permission prompt."""
     if last_role != "assistant" and not kind:
@@ -372,6 +372,10 @@ def transcript_item(app: str, sid: str, title: str, last_role: str, last_text: s
             "title": f"{short} {kind}", "detail": f"“{title}”", "at": at, "agent": label,
             "why": "It ended on a question and nobody has replied since." if kind == "asked you a question" else WHY.get(kind, ""),
             "facts": (extra or []) + [["Session", title], ["Folder", cwd or "?"], ["Last active", when(at)]],
+            # Hermes can take the session over: `hermes sessions import` copies it into the Hermes store
+            # (the original file is only read) and it continues as a normal Hermes chat.
+            "more": [{"kind": "hermes-import", "label": "Continue in Hermes", "app": app, "path": path,
+                      "value": f"hermes sessions import --from {app} {json.dumps(path)}"}] if path else [],
             "action": {"kind": "command", "label": "Resume", "value": resume}}
 
 
@@ -446,7 +450,7 @@ def src_claude(now: float, hours: float | None = None) -> list[dict]:
                 inp = last_tool.get("input") or {}
                 what = inp.get("command") or inp.get("description") or ""
                 extra = [["Waiting on", name + (f": {str(what)[:90]}" if what else "")]]
-            item = transcript_item("claude", f.stem, title or f.parent.name.replace("-", "/"), role, text, mtime, cwd, now, kind, extra)
+            item = transcript_item("claude", f.stem, title or f.parent.name.replace("-", "/"), role, text, mtime, cwd, now, kind, extra, str(f))
             if item:
                 items.append(item)
         except OSError:
@@ -498,7 +502,7 @@ def src_codex(now: float, hours: float | None = None) -> list[dict]:
                         role, text, last_kind = p["role"], body, "msg"
             sid = sid or f.stem[-36:]
             kind = "waiting on your approval" if last_kind == "call" and now - mtime > active_grace() else None
-            item = transcript_item("codex", sid, names.get(sid, ""), role, text, mtime, cwd, now, kind, [["Waiting on", "a tool call"]] if kind else None)
+            item = transcript_item("codex", sid, names.get(sid, ""), role, text, mtime, cwd, now, kind, [["Waiting on", "a tool call"]] if kind else None, str(f))
             if item:
                 items.append(item)
         except OSError:
@@ -766,6 +770,9 @@ def render(data: dict) -> str:
         lines.append(f"  [{it['priority']:>5}] {it['title']} — {it['detail']}")
         if it["action"].get("value"):
             lines.append(f"          {it['action']['label']}: {it['action']['value']}")
+        for m in it.get("more") or []:
+            if m.get("kind") == "hermes-import":
+                lines.append(f"          {m['label']}: {m['value']}")
     for k, v in data["errors"].items():
         lines.append(f"  (couldn't read {k}: {v})")
     return "\n".join(lines)

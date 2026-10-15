@@ -14,7 +14,8 @@ export const host = {
   profileRoutes: async () => [{ connectionId: 'local', mode: 'local', primary: true, profile: 'ceo', targetProfile: 'ceo' }],
   requestProfile: async (route, method, params) => {
     window.__calls = (window.__calls || []).concat([{ method, argv: params.argv }])
-    const verb = params.argv[3]
+    const verb = params.argv[2] === 'sessions' ? 'import' : params.argv[3]
+    if (verb === 'import') { window.__imported = params.argv.slice(2); return { code: 0, output: '✓ Imported Claude Code session as 20261015_120054_test\n  Continue it with:  hermes --resume 20261015_120054_test' } }
     if (verb === 'set') { payload.switches = { ...(payload.switches || {}), [params.argv[4]]: params.argv[5] === 'on' }; return { code: 0, output: JSON.stringify({ ok: true }) } }
     const shown = { ...payload, items: (payload.items || []).filter((i) => !['claude', 'codex'].includes(i.app) || (payload.switches || {})[i.app]) }
     return { code: 0, output: 'some log line\n' + JSON.stringify(verb === 'done' || verb === 'snooze' ? { ok: true } : shown) }
