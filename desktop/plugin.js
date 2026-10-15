@@ -124,25 +124,25 @@ const CSS = `
 .hin .scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-gutter:stable;padding:18px clamp(20px,3vw,40px) 32px}
 .hin .scroll::-webkit-scrollbar{width:8px}.hin .scroll::-webkit-scrollbar-track{background:transparent}
 .hin .scroll::-webkit-scrollbar-thumb{background:var(--ui-stroke-tertiary,#34343b);border-radius:8px}
-.hin .lane{margin:6px 0 22px}
+.hin .lane{margin:4px 0 16px}
 .hin .lane-title{display:flex;align-items:baseline;gap:10px;margin:0 0 10px}
 .hin .lane-title b{font:700 12px ${MONO};letter-spacing:.08em}
 .hin .lane-title span{font-size:11.5px;color:var(--ui-text-quaternary,#6e7681)}
-.hin .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr));gap:14px}
-@container (min-width:1300px){.hin .grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
-.hin .card{position:relative;display:flex;flex-direction:column;min-width:0;height:184px;padding:12px 14px;border-radius:10px;border:1px solid var(--ui-stroke-quaternary,#2c2b34);border-top:3px solid color-mix(in srgb,var(--a) 65%,var(--card,#1c1c23));background:linear-gradient(155deg,color-mix(in srgb,var(--a) 8%,var(--card,#1c1c23)),var(--card,#1c1c23) 75%);box-shadow:0 3px 10px #0000000a;transition:border-color .15s,transform .15s}
+.hin .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,210px),1fr));gap:10px}
+@container (min-width:1500px){.hin .grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
+.hin .card{position:relative;display:flex;flex-direction:column;min-width:0;height:116px;padding:8px 10px 6px;border-radius:8px;border:1px solid var(--ui-stroke-quaternary,#2c2b34);border-top:2px solid color-mix(in srgb,var(--a) 65%,var(--card,#1c1c23));background:linear-gradient(155deg,color-mix(in srgb,var(--a) 8%,var(--card,#1c1c23)),var(--card,#1c1c23) 75%);box-shadow:0 3px 10px #0000000a;transition:border-color .15s,transform .15s}
 .hin .card:hover{border-color:var(--ui-stroke-primary,#64616f);transform:translateY(-1px)}
-.hin .card-head{display:flex;gap:10px;align-items:flex-start;min-width:0}
-.hin .icon{display:grid;place-items:center;flex-shrink:0;width:30px;height:30px;border-radius:7px;color:var(--a);background:color-mix(in srgb,var(--a) 13%,transparent);font-size:17px}
-.hin .name{font-size:14.5px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
-.hin .src{font-size:10.5px;color:var(--ui-text-tertiary,#a6a4b0);margin-top:4px}
-.hin .label{font-size:11px;font-weight:600;color:var(--ui-text-secondary,#b8b6c2);margin:10px 0 2px}
-.hin .brief{margin:0;padding:0;list-style:none;font-size:12px;line-height:1.45;color:var(--ui-text-secondary,#b8b6c2)}
+.hin .card-head{display:flex;gap:8px;align-items:flex-start;min-width:0}
+.hin .icon{display:grid;place-items:center;flex-shrink:0;width:22px;height:22px;border-radius:5px;color:var(--a);background:color-mix(in srgb,var(--a) 13%,transparent);font-size:13px}.hin .icon .codicon{font-size:13px}
+.hin .name{font-size:12.5px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.hin .src{font-size:10px;color:var(--ui-text-tertiary,#a6a4b0);margin-top:1px}
+.hin .label{display:none}
+.hin .brief{margin:5px 0 0;padding:0;list-style:none;font-size:11px;line-height:1.45;color:var(--ui-text-secondary,#b8b6c2)}
 .hin .brief li{position:relative;padding-left:11px}
 .hin .brief li:before{content:"•";position:absolute;left:0;color:var(--a)}
-.hin .brief li span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.hin .brief li span{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .hin .foot{display:flex;align-items:center;gap:4px;margin-top:auto}
-.hin .foot button,.hin .foot a{font:12px system-ui,sans-serif;border:0;background:transparent;color:var(--ui-text-tertiary,#a6a4b0);padding:4px 6px;border-radius:6px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.hin .foot button,.hin .foot a{font:11px system-ui,sans-serif;border:0;background:transparent;color:var(--ui-text-tertiary,#a6a4b0);padding:2px 5px;border-radius:6px;cursor:pointer;text-decoration:none;white-space:nowrap}
 .hin .foot button:hover,.hin .foot a:hover{background:var(--chrome-action-hover,#303038);color:var(--ui-text-primary,#eeedf2)}
 .hin .foot .go{margin-left:auto;color:var(--ui-text-primary,#eeedf2);font-weight:500}
 .hin .head button{font-size:12px;padding:5px 12px;border-radius:7px;border:1px solid var(--ui-stroke-tertiary,#34343b);background:var(--ui-bg-quaternary,#24242b);color:inherit;cursor:pointer}
@@ -187,7 +187,7 @@ function Card({ it, color }) {
       jsx('ul', { className: 'brief', children: jsx('li', { children: jsx('span', { title: it.detail, children: it.detail || it.action.label }) }) }),
       jsxs('div', { className: 'foot', children: [
         jsx('button', { type: 'button', title: 'Hide until it changes', onClick: () => clear(it, 'done'), children: 'Done' }),
-        jsx('button', { type: 'button', title: 'Hide for a day', onClick: () => clear(it, 'snooze', 24), children: 'Snooze 1d' }),
+        jsx('button', { type: 'button', title: 'Hide for a day', onClick: () => clear(it, 'snooze', 24), children: 'Snooze' }),
         jsx(Go, { a: it.action }),
       ] }),
     ],
