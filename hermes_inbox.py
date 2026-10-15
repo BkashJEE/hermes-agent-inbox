@@ -53,6 +53,17 @@ FILED = HERMES / "inbox"          # cards that Bots, crons and scripts post with
 CONFIG = HERMES / "inbox.json"    # optional settings, see README
 
 
+OPT_IN = ("claude", "codex")  # other apps' sessions: off until switched on
+
+
+def set_source(name: str, on: bool) -> dict:
+    """Turn one source on or off in inbox.json (the page's switcher calls this)."""
+    cfg = config()
+    cfg.setdefault("sources", {})[name] = on
+    CONFIG.write_text(json.dumps(cfg, indent=1))
+    return {"ok": True, "sources": cfg["sources"]}
+
+
 def config() -> dict:
     """{"xstudio_url": "...", "ignore_repos": ["owner/repo", ...], "stale_pr_days": 30, "sources": {"prs": false}}"""
     try:
@@ -605,7 +616,8 @@ def collect(names: list[str] | None = None) -> dict:
         it.setdefault("app", APP.get(it["source"], "hermes"))
     merged = collapse_sessions(items)
     shown = visible(merged, load_state(), now)
-    return {"checked_at": now, "items": shown, "counts": counts, "hidden": len(merged) - len(shown), "errors": errors,
+    switches = {name: bool((config().get("sources") or {}).get(name)) for name in OPT_IN}
+    return {"checked_at": now, "items": shown, "switches": switches, "counts": counts, "hidden": len(merged) - len(shown), "errors": errors,
             "summary": {p: sum(1 for i in shown if i["priority"] == p) for p in PRIORITY}}
 
 
@@ -623,8 +635,8 @@ def render(data: dict) -> str:
 
 def add_arguments(ap) -> None:
     """Shared by the standalone script and `hermes inbox`."""
-    ap.add_argument("action", nargs="?", default="list", choices=["list", "add", "done", "snooze", "reset"])
-    ap.add_argument("target", nargs="*", help="add TITLE | done ID | snooze ID HOURS")
+    ap.add_argument("action", nargs="?", default="list", choices=["list", "add", "done", "snooze", "reset", "set"])
+    ap.add_argument("target", nargs="*", help="add TITLE | done ID | snooze ID HOURS | set SOURCE on|off")
     ap.add_argument("--json", action="store_true", help="one-line JSON (the Desktop page reads this)")
     ap.add_argument("--source", action="append", help="only this source: " + ", ".join(SOURCES))
     add = ap.add_argument_group("add (post a card, e.g. from a Bot or a cron job)")
@@ -648,6 +660,10 @@ def dispatch(a) -> str:
             raise ValueError('usage: hermes inbox add "Title" [--detail ...] [--priority now|today|later] [--url ...]')
         return json.dumps(file_card(" ".join(target), detail=a.detail, priority=a.priority, url=a.url, command=a.card_command,
                                     session=a.session, profile=a.card_profile, why=a.why, sender=a.sender, key=a.key, hours=a.hours))
+    if action == "set":
+        if len(target) != 2 or target[0] not in SOURCES or target[1] not in ("on", "off"):
+            raise ValueError("usage: hermes inbox set SOURCE on|off  (sources: " + ", ".join(SOURCES) + ")")
+        return json.dumps(set_source(target[0], target[1] == "on"))
     if action in ("done", "snooze", "reset"):
         st = load_state()
         if action == "done" and target:

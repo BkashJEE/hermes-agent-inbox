@@ -15,6 +15,8 @@ export const host = {
   requestProfile: async (route, method, params) => {
     window.__calls = (window.__calls || []).concat([{ method, argv: params.argv }])
     const verb = params.argv[3]
-    return { code: 0, output: 'some log line\n' + JSON.stringify(verb === 'done' || verb === 'snooze' ? { ok: true } : payload) }
+    if (verb === 'set') { payload.switches = { ...(payload.switches || {}), [params.argv[4]]: params.argv[5] === 'on' }; return { code: 0, output: JSON.stringify({ ok: true }) } }
+    const shown = { ...payload, items: (payload.items || []).filter((i) => !['claude', 'codex'].includes(i.app) || (payload.switches || {})[i.app]) }
+    return { code: 0, output: 'some log line\n' + JSON.stringify(verb === 'done' || verb === 'snooze' ? { ok: true } : shown) }
   },
 }

@@ -475,5 +475,9 @@
  "counts": {},
  "hidden": 0,
  "errors": {},
- "summary": {}
+ "summary": {},
+ "switches": {
+  "claude": true,
+  "codex": true
+ }
 }

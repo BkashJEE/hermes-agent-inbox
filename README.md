@@ -31,7 +31,9 @@ Bots can post their own cards too (`hermes inbox add`), so a cron job can ask yo
 | **Claude Code** (opt-in) | A session's last message is Claude's and it ended stuck, on a question, or asking you to check something | Now / Today |
 | **Codex** (opt-in) | The same, for Codex threads | Now / Today |
 
-Every card says **which Bot needs you** (or which Claude Code / Codex session). Tabs along the top split the list by app: All · Hermes · Claude · Codex · GitHub · X Studio.
+Every card says **which Bot needs you** (or which Claude Code / Codex session). Tabs along the top split the list by app. **Hermes** is the default tab, followed by GitHub, X Studio and All.
+
+**Claude Code and Codex are off until you switch them on.** Use the **Also show** switches on the page, or `hermes inbox set claude on`. When one is on, its own tab appears.
 
 Chats show only the session title and how the session ended, never the messages. A daily cron that gets stuck every day shows as **one** card ("also 2 earlier times").
 
@@ -83,6 +85,7 @@ hermes inbox --json                # for tools
 hermes inbox done ID               # hide until it changes
 hermes inbox snooze ID 24          # hide for 24 h
 hermes inbox add "Title" [...]     # post a card
+hermes inbox set claude on         # show Claude Code sessions (or codex; off to hide)
 ```
 
 ## Settings (optional)
@@ -91,7 +94,7 @@ hermes inbox add "Title" [...]     # post a card
 
 ```json
 {
-  "sources": { "prs": false, "claude": true, "codex": true },
+  "sources": { "prs": false, "claude": true, "codex": false },
   "ignore_repos": ["me/old-experiment"],
   "stale_pr_days": 30,
   "xstudio_url": "http://127.0.0.1:3417"
@@ -117,7 +120,7 @@ Each source fails soft. If one can't be read, the others still show, with a one-
 ## Develop
 
 ```bash
-python3 -m unittest discover -s tests     # 21 tests, no Hermes needed
+python3 -m unittest discover -s tests     # 22 tests, no Hermes needed
 python3 hermes_inbox.py                   # runs without Hermes's CLI
 ```
 

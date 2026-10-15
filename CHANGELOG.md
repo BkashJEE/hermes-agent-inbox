@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 — 2026-10-15
+
+- **Hermes is the default tab.**
+- **Claude Code and Codex are off until switched on** with the page's **Also show** switches or `hermes inbox set claude|codex on|off`. Each one's tab appears only while it's on.
+
 ## 0.2.0 — 2026-10-15
 
 - **Claude Code and Codex sources** (opt-in with `"sources": {"claude": true, "codex": true}`): a session whose last message is the assistant's and ends stuck, on a question, or asking you to check something shows up, with a copyable resume command.

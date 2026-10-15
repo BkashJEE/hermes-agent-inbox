@@ -157,6 +157,21 @@ class Transcripts(unittest.TestCase):
         self.assertIsNone(h.transcript_item("claude", "x", "t", "assistant", "Done, merged.", NOW, "", NOW))
 
 
+class Switch(unittest.TestCase):
+    def test_set_source_writes_config_and_keeps_other_settings(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            old = h.CONFIG
+            h.CONFIG = Path(d) / "inbox.json"
+            try:
+                h.CONFIG.write_text('{"stale_pr_days": 9}')
+                self.assertEqual(h.set_source("claude", True)["sources"], {"claude": True})
+                h.set_source("claude", False)
+                self.assertEqual(h.config(), {"stale_pr_days": 9, "sources": {"claude": False}})
+            finally:
+                h.CONFIG = old
+
+
 class Time(unittest.TestCase):
     def test_iso_is_utc(self):
         self.assertEqual(h.iso_ts("1970-01-02T00:00:00.000Z"), 86400.0)

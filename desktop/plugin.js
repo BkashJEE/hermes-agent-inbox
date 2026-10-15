@@ -118,7 +118,7 @@ const CSS = `
 .hin h1{font-size:22px;letter-spacing:-.5px;font-weight:600;margin:0}
 .hin .sub{font-size:12px;color:var(--ui-text-tertiary,#a6a4b0)}
 .hin .meta{margin-left:auto;font:11px ${MONO};color:var(--ui-text-tertiary,#a6a4b0)}
-.hin .tabs{display:flex;gap:4px;width:100%;margin:2px 0 -2px;border-bottom:1px solid var(--ui-stroke-tertiary,#34343b)}.hin .head .tab{font:13px system-ui,sans-serif;padding:7px 12px;border:0;border-radius:0;background:transparent;color:var(--ui-text-tertiary,#a6a4b0);cursor:pointer;display:flex;gap:7px;align-items:center}.hin .tab span{font:11px ${MONO};padding:0 6px;border-radius:999px;background:var(--ui-bg-quaternary,#24242b);color:var(--ui-text-secondary,#b8b6c2)}.hin .head .tab:hover{color:var(--ui-text-primary,#eeedf2)}.hin .head .tab.on{color:var(--ui-text-primary,#eeedf2);box-shadow:0 2px 0 var(--ui-accent,#4a84fe)}.hin .tab.on span{background:color-mix(in srgb,var(--ui-accent,#4a84fe) 25%,transparent);color:var(--ui-text-primary,#eeedf2)}.hin .tally{display:flex;gap:8px;width:100%}
+.hin .tabs{display:flex;gap:4px;width:100%;margin:2px 0 -2px;border-bottom:1px solid var(--ui-stroke-tertiary,#34343b)}.hin .head .tab{font:13px system-ui,sans-serif;padding:7px 12px;border:0;border-radius:0;background:transparent;color:var(--ui-text-tertiary,#a6a4b0);cursor:pointer;display:flex;gap:7px;align-items:center}.hin .tab span{font:11px ${MONO};padding:0 6px;border-radius:999px;background:var(--ui-bg-quaternary,#24242b);color:var(--ui-text-secondary,#b8b6c2)}.hin .head .tab:hover{color:var(--ui-text-primary,#eeedf2)}.hin .head .tab.on{color:var(--ui-text-primary,#eeedf2);box-shadow:0 2px 0 var(--ui-accent,#4a84fe)}.hin .tab.on span{background:color-mix(in srgb,var(--ui-accent,#4a84fe) 25%,transparent);color:var(--ui-text-primary,#eeedf2)}.hin .switches{margin-left:auto;display:flex;align-items:center;gap:6px;padding-bottom:4px}.hin .sw-label{font-size:11px;color:var(--ui-text-quaternary,#6e7681);margin-right:2px}.hin .head .sw{display:flex;align-items:center;gap:6px;font:12px system-ui,sans-serif;padding:3px 9px 3px 4px;border-radius:999px;border:1px solid var(--ui-stroke-tertiary,#34343b);background:transparent;color:var(--ui-text-tertiary,#a6a4b0);cursor:pointer}.hin .sw .knob{width:22px;height:12px;border-radius:999px;background:var(--ui-bg-quaternary,#24242b);position:relative;transition:background .15s}.hin .sw .knob:after{content:'';position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:var(--ui-text-quaternary,#6e7681);transition:transform .15s,background .15s}.hin .head .sw.on{color:var(--ui-text-primary,#eeedf2);border-color:color-mix(in srgb,var(--ui-accent,#4a84fe) 50%,transparent)}.hin .sw.on .knob{background:color-mix(in srgb,var(--ui-accent,#4a84fe) 45%,transparent)}.hin .sw.on .knob:after{transform:translateX(10px);background:#fff}.hin .tally{display:flex;gap:8px;width:100%}
 .hin .tally span{font:600 11px ${MONO};letter-spacing:.06em;padding:3px 9px;border-radius:999px;border:1px solid var(--ui-stroke-tertiary,#34343b);color:var(--ui-text-quaternary,#6e7681)}
 .hin .tally .on{color:var(--t);border-color:color-mix(in srgb,var(--t) 55%,transparent);background:color-mix(in srgb,var(--t) 10%,transparent)}
 .hin .scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-gutter:stable;padding:18px clamp(20px,3vw,40px) 32px}
@@ -155,11 +155,19 @@ const CSS = `
 const ICON = { claude: 'sparkle', codex: 'terminal', filed: 'mail', keys: 'key', vitals: 'pulse', sessions: 'comment-discussion', crons: 'clock', prs: 'git-pull-request', review: 'eye' }
 const KIND = { claude: 'Claude Code', codex: 'Codex', filed: 'Posted', keys: 'Key Doctor', vitals: 'Vitals', sessions: 'Bot chat', crons: 'Cron job', prs: 'Pull request', review: 'X Studio' }
 // Tabs: one per app that has something waiting. The status-bar chip always counts every tab.
-const TABS = [['all', 'All'], ['hermes', 'Hermes'], ['claude', 'Claude'], ['codex', 'Codex'], ['github', 'GitHub'], ['xstudio', 'X Studio']]
-const TAB_KEY = 'hermes-inbox.tab.v1'
-const loadTab = () => { try { return localStorage.getItem(TAB_KEY) || 'all' } catch { return 'all' } }
+const TABS = [['hermes', 'Hermes'], ['claude', 'Claude'], ['codex', 'Codex'], ['github', 'GitHub'], ['xstudio', 'X Studio'], ['all', 'All']]
+const TAB_KEY = 'hermes-inbox.tab.v2'
+const loadTab = () => { try { return localStorage.getItem(TAB_KEY) || 'hermes' } catch { return 'hermes' } }
 const saveTab = (t) => { try { localStorage.setItem(TAB_KEY, t) } catch { /* fine */ } }
 const appOf = (it) => it.app || 'hermes'
+// Other agent apps are off until switched on here; the choice is saved in ~/.hermes/inbox.json.
+const SWITCHES = [['claude', 'Claude Code'], ['codex', 'Codex']]
+async function flipSource(name, on) {
+  if (store.data) store.data = { ...store.data, switches: { ...(store.data.switches || {}), [name]: on } }
+  notify()
+  try { await runInbox(['set', name, on ? 'on' : 'off']) } catch (e) { host.notify?.({ kind: 'error', message: `Inbox: ${String((e && e.message) || e)}` }) }
+  refresh()
+}
 // Who needs you: the Bot (or the app, for Claude Code and Codex).
 function agentFacts(it) {
   const facts = it.facts || []
@@ -252,8 +260,8 @@ function InboxPage() {
   const d = s.data
   const all = shown(s)
   const tabCount = (t) => (t === 'all' ? all.length : all.filter((i) => appOf(i) === t).length)
-  const tabs = TABS.filter(([t]) => t === 'all' || tabCount(t) > 0)
-  const current = tabs.some(([t]) => t === tab) ? tab : 'all'
+  const tabs = TABS.filter(([t]) => t === 'all' || t === 'hermes' || tabCount(t) > 0)
+  const current = tabs.some(([t]) => t === tab) ? tab : 'hermes'
   const items = current === 'all' ? all : all.filter((i) => appOf(i) === current)
   const head = jsxs('div', { className: 'head', children: [
     jsx('h1', { children: 'Inbox' }),
@@ -263,7 +271,14 @@ function InboxPage() {
     jsx('button', { type: 'button', onClick: () => refresh(), disabled: Boolean(s.inflight), children: s.inflight ? 'Checking…' : 'Check now' }),
     d ? jsx('div', { className: 'tabs', role: 'tablist', children: tabs.map(([t, label]) => jsxs('button', {
       type: 'button', role: 'tab', 'aria-selected': current === t, className: current === t ? 'tab on' : 'tab', onClick: () => setTab(t),
-      children: [label, jsx('span', { children: tabCount(t) })] }, t)) }) : null,
+      children: [label, jsx('span', { children: tabCount(t) })] }, t)).concat([
+        jsxs('div', { className: 'switches', key: 'sw', children: [jsx('span', { className: 'sw-label', children: 'Also show' }),
+          ...SWITCHES.map(([name, label]) => {
+            const on = Boolean(d.switches && d.switches[name])
+            return jsxs('button', { type: 'button', role: 'switch', 'aria-checked': on, className: on ? 'sw on' : 'sw',
+              title: on ? `Hide ${label} sessions` : `Show ${label} sessions that are waiting on you`,
+              onClick: () => flipSource(name, !on), children: [jsx('i', { className: 'knob' }), label] }, name)
+          })] })]) }) : null,
     d ? jsx('div', { className: 'tally', children: LANES.map((l) => {
       const n = items.filter((i) => i.priority === l.key).length
       return jsx('span', { className: `${n ? 'on' : ''}${folded[l.key] ? ' off' : ''}`, style: { '--t': l.color }, title: folded[l.key] ? 'Show this section' : 'Fold this section', onClick: () => fold(l.key), children: `${n} ${l.label.toLowerCase()}` }, l.key)
