@@ -300,9 +300,10 @@ def src_vitals(now: float) -> list[dict]:
     return items
 
 
-def src_sessions(now: float, hours: float = 48) -> list[dict]:
+def src_sessions(now: float, hours: float | None = None) -> list[dict]:
+    """Hermes Bot sessions that ended waiting on you, over the same window as the other agents."""
     items = []
-    since = now - hours * 3600
+    since = now - (hours or agent_hours()) * 3600
     for profile, home in profiles():
         db = home / "state.db"
         if not db.exists():
@@ -787,16 +788,25 @@ def collect(names: list[str] | None = None, apps: list[str] | None = None) -> di
             "summary": {p: sum(1 for i in shown if i["priority"] == p) for p in PRIORITY}}
 
 
+APP_LABEL = {"hermes": "Hermes", "claude": "Claude Code", "codex": "Codex (ChatGPT)", "xstudio": "X Studio"}
+
+
 def render(data: dict) -> str:
     s = data["summary"]
     lines = [f"Hermes Inbox: {s['now']} now · {s['today']} today · {s['later']} later" + (f"  ({data['hidden']} done/snoozed)" if data["hidden"] else "")]
-    for it in data["items"]:
-        lines.append(f"  [{it['priority']:>5}] {it['title']} — {it['detail']}")
-        if it["action"].get("value"):
-            lines.append(f"          {it['action']['label']}: {it['action']['value']}")
-        for m in it.get("more") or []:
-            if m.get("kind") == "hermes-import":
-                lines.append(f"          {m['label']}: hermes sessions import --from {m['app']} {json.dumps(m['path'])}")
+    apps = [a for a in APP_LABEL if any(it.get("app") == a for it in data["items"])]
+    for app in apps:
+        if len(apps) > 1:
+            lines.append(f"\n{APP_LABEL[app]} — {sum(1 for it in data['items'] if it.get('app') == app)}")
+        for it in data["items"]:
+            if it.get("app") != app:
+                continue
+            lines.append(f"  [{it['priority']:>5}] {it['title']} — {it['detail']}")
+            if it["action"].get("value"):
+                lines.append(f"          {it['action']['label']}: {it['action']['value']}")
+            for m in it.get("more") or []:
+                if m.get("kind") == "hermes-import":
+                    lines.append(f"          {m['label']}: hermes sessions import --from {m['app']} {json.dumps(m['path'])}")
     for k, v in data["errors"].items():
         lines.append(f"  (couldn't read {k}: {v})")
     return "\n".join(lines)

@@ -25,8 +25,9 @@ createRoot(document.getElementById('chip')).render(reg.find((c) => c.area === 's
 // ?expand=TEXT opens the first card whose title contains TEXT; ?fold=later folds a section (for screenshots).
 const q = new URLSearchParams(location.search)
 const later = () => {
+  if (q.get('tab')) [...document.querySelectorAll('.hin .tab')].find((b) => b.textContent.toLowerCase().startsWith(q.get('tab')))?.click()
   if (q.get('fold')) [...document.querySelectorAll('.lane-title')].filter((b) => b.textContent.toLowerCase().includes(q.get('fold'))).forEach((b) => b.click())
   if (q.get('expand')) [...document.querySelectorAll('.card')].find((c) => c.textContent.includes(q.get('expand')))?.click()
 }
-setTimeout(later, 900)
+setTimeout(later, 900); setTimeout(later, 1600)
 </script></body></html>

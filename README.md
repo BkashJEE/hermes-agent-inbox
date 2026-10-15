@@ -18,9 +18,9 @@ Bots can post their own cards too (`hermes inbox add`), so a cron job can ask yo
 
 | Source | A card appears when | Priority |
 |---|---|---|
-| **Chats** | A Bot's session in the last 48 h ended on a sign-in or an approval request | Now |
+| **Chats** | A Bot's session in the last 7 days ended on a sign-in or an approval request | Now |
 | | It hit a limit, a missing tool or a site that refused it | Today |
-| | It ended on a question you haven't opened | Today |
+| | It ended on a question, or an offer ("say yes and I'll…"), that you haven't opened | Today |
 | **Crons** | A job's last run failed | Now |
 | **Keys** ([Key Doctor](https://github.com/BkashJEE/hermes-key-doctor), optional) | A Bot can't reach its model; a login is benched, dead or expiring | Now / Today |
 | **Vitals** (optional) | A red alarm | Now |
@@ -56,6 +56,8 @@ Chats show only the session title and how the session ended, never the messages.
 - **A `▣` status-bar chip:** `2 waiting on you`.
 
 ![A card expanded: why it's there, the facts, and copy buttons](docs/card-expanded.png)
+
+![The Claude tab: Claude Code sessions waiting on you, and the PRs it opened, with Continue in Hermes](docs/claude-tab.png)
 
 *Screenshots use sample data (`harness/demo.json`).*
 

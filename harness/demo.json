@@ -147,7 +147,15 @@
     "kind": "command",
     "label": "Resume",
     "value": "cd ~/code/billing && claude --resume c1"
-   }
+   },
+   "more": [
+    {
+     "kind": "hermes-import",
+     "label": "Continue in Hermes",
+     "app": "claude",
+     "path": "/home/me/.claude/sessions/c1.jsonl"
+    }
+   ]
   },
   {
    "id": "codex:x1",
@@ -177,7 +185,15 @@
     "kind": "command",
     "label": "Resume",
     "value": "cd ~/code/app && codex resume x1"
-   }
+   },
+   "more": [
+    {
+     "kind": "hermes-import",
+     "label": "Continue in Hermes",
+     "app": "codex",
+     "path": "/home/me/.codex/sessions/x1.jsonl"
+    }
+   ]
   },
   {
    "id": "filed:thumb",

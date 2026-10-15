@@ -315,10 +315,10 @@ function InboxPage() {
   const items = all.filter((i) => appOf(i) === current)
   const sourceOn = (t) => !ON_CLICK.includes(t) || Boolean(s.switches[t])
   const loaded = (t) => !ON_CLICK.includes(t) || s.loaded.has(t)
-  const openTab = (t) => {
-    setTab(t)
-    if (ON_CLICK.includes(t) && !s.loaded.has(t) && !s.inflight[t]) (sourceOn(t) ? Promise.resolve() : flipSource(t, true)).then(() => refreshGroup(t))
-  }
+  const loadTabData = (t) => { if (ON_CLICK.includes(t) && !s.loaded.has(t) && !s.inflight[t]) (sourceOn(t) ? Promise.resolve() : flipSource(t, true)).then(() => refreshGroup(t)) }
+  const openTab = (t) => { setTab(t); loadTabData(t) }
+  // The page may open on a remembered Claude/Codex tab: fetch it then too, not only on a click.
+  useEffect(() => { if (d) loadTabData(current) }, [current, Boolean(d)])
   const head = jsxs('div', { className: 'head', children: [
     jsx('h1', { children: 'Inbox' }),
     jsx('span', { className: 'sub', children: 'everything your Bots and tools are waiting on you for' }),
@@ -334,8 +334,8 @@ function InboxPage() {
       return jsx('span', { className: `${n ? 'on' : ''}${folded[l.key] ? ' off' : ''}`, style: { '--t': l.color }, title: folded[l.key] ? 'Show this section' : 'Fold this section', onClick: () => fold(l.key), children: `${n} ${l.label.toLowerCase()}` }, l.key)
     }) }) : null,
   ] })
-  const errs = d ? Object.entries(d.errors || {}) : []
-  const cur = s.apps[current === 'xstudio' ? 'base' : current === 'hermes' ? 'base' : current]
+  const cur = s.apps[current === 'xstudio' || current === 'hermes' ? 'base' : current]
+  const errs = cur ? Object.entries(cur.errors || {}) : []
   const truncated = cur && cur.truncated
   return jsxs('div', { className: 'hin', children: [
     jsx('style', { children: CSS }),
