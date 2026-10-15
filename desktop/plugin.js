@@ -75,17 +75,24 @@ function openLink(url) {
   }
 }
 
-const store = { data: null, error: null, at: 0, listeners: new Set(), inflight: null, cleared: new Set() }
+// Each tab is fetched on its own (`--app`), so no single response can outgrow the gateway's 48 KB
+// output cap. 'base' = Hermes + X Studio, loaded at start; Claude and Codex load when their tab is opened.
+const GROUPS = { base: ['hermes', 'xstudio'], claude: ['claude'], codex: ['codex'] }
+const store = { apps: {}, switches: {}, error: null, at: 0, listeners: new Set(), inflight: {}, cleared: new Set(), loaded: new Set() }
 function notify() { store.listeners.forEach((fn) => fn()) }
-function refresh() {
-  if (store.inflight) return store.inflight
-  store.inflight = runInbox(['--json'])
-    .then((d) => { store.data = d; store.error = null; store.at = Date.now(); store.cleared.clear() })
+function refreshGroup(g) {
+  if (store.inflight[g]) return store.inflight[g]
+  store.inflight[g] = runInbox(['--json', ...GROUPS[g].flatMap((a) => ['--app', a])])
+    .then((d) => { store.apps[g] = d; store.loaded.add(g); if (d.switches) store.switches = d.switches; store.error = null; store.at = Date.now() })
     .catch((e) => { store.error = String((e && e.message) || e) })
-    .finally(() => { store.inflight = null; notify() })
+    .finally(() => { delete store.inflight[g]; notify() })
   notify()
-  return store.inflight
+  return store.inflight[g]
 }
+function refresh() {
+  return Promise.all(['base', ...[...store.loaded].filter((g) => g !== 'base')].map(refreshGroup))
+}
+const busy = (s) => Object.keys(s.inflight).length > 0
 // Done / snooze hide the row at once; the next refresh confirms it from the state file.
 async function clear(item, verb, hours) {
   store.cleared.add(item.id); notify()
@@ -101,7 +108,7 @@ function useInbox() {
   useEffect(() => {
     const fn = () => bump((n) => n + 1)
     store.listeners.add(fn)
-    if (!store.data && !store.inflight) refresh()
+    if (!store.apps.base && !store.inflight.base) refresh()
     return () => store.listeners.delete(fn)
   }, [])
   return store
@@ -112,7 +119,7 @@ function startPolling(ctx) {
   ctx.addEventListener(document, 'visibilitychange', tick)
   refresh()
 }
-const shown = (s) => ((s.data && s.data.items) || []).filter((i) => !s.cleared.has(i.id))
+const shown = (s) => Object.keys(GROUPS).flatMap((g) => (s.apps[g] && s.apps[g].items) || []).filter((i) => !s.cleared.has(i.id))
 
 // ── theme ───────────────────────────────────────────────────────────────────
 const V = (name, fallback) => `var(${name}, ${fallback})`
@@ -193,7 +200,7 @@ const saveTab = (t) => { try { localStorage.setItem(TAB_KEY, t) } catch { /* fin
 const appOf = (it) => it.app || 'hermes'
 // Other agent apps are off until switched on here; the choice is saved in ~/.hermes/inbox.json.
 async function flipSource(name, on) {
-  if (store.data) store.data = { ...store.data, switches: { ...(store.data.switches || {}), [name]: on } }
+  store.switches = { ...store.switches, [name]: on }
   notify()
   try { await runInbox(['set', name, on ? 'on' : 'off']) } catch (e) { host.notify?.({ kind: 'error', message: `Inbox: ${String((e && e.message) || e)}` }) }
   refresh()
@@ -230,7 +237,7 @@ function saveFolded(v) { try { localStorage.setItem(FOLD_KEY, JSON.stringify(v))
 
 function ImportBtn({ m }) {
   const [state, setState] = useState('idle')
-  return jsx('button', { type: 'button', className: 'go import', disabled: state === 'busy', title: m.value,
+  return jsx('button', { type: 'button', className: 'go import', disabled: state === 'busy', title: `hermes sessions import --from ${m.app} ${m.path}`,
     onClick: () => {
       setState('busy')
       continueInHermes(m).then(() => setState('done')).catch((e) => { setState('idle'); host.notify?.({ kind: 'error', message: `Continue in Hermes: ${String((e && e.message) || e)}` }) })
@@ -300,37 +307,44 @@ function InboxPage() {
   const fold = (key) => { const next = { ...folded, [key]: !folded[key] }; setFolded(next); saveFolded(next) }
   const allFolded = LANES.every((l) => folded[l.key])
   const foldAll = () => { const next = Object.fromEntries(LANES.map((l) => [l.key, !allFolded])); setFolded(next); saveFolded(next) }
-  const d = s.data
+  const d = s.apps.base
   const all = shown(s)
   const tabCount = (t) => (t === 'all' ? all.length : all.filter((i) => appOf(i) === t).length)
   const tabs = TABS.filter(([t]) => t === 'hermes' || ON_CLICK.includes(t) || tabCount(t) > 0)
   const current = tabs.some(([t]) => t === tab) ? tab : 'hermes'
   const items = all.filter((i) => appOf(i) === current)
-  const sourceOn = (t) => !ON_CLICK.includes(t) || Boolean(d && d.switches && d.switches[t])
-  const openTab = (t) => { if (!sourceOn(t)) flipSource(t, true); setTab(t) }
+  const sourceOn = (t) => !ON_CLICK.includes(t) || Boolean(s.switches[t])
+  const loaded = (t) => !ON_CLICK.includes(t) || s.loaded.has(t)
+  const openTab = (t) => {
+    setTab(t)
+    if (ON_CLICK.includes(t) && !s.loaded.has(t) && !s.inflight[t]) (sourceOn(t) ? Promise.resolve() : flipSource(t, true)).then(() => refreshGroup(t))
+  }
   const head = jsxs('div', { className: 'head', children: [
     jsx('h1', { children: 'Inbox' }),
     jsx('span', { className: 'sub', children: 'everything your Bots and tools are waiting on you for' }),
     jsx('span', { className: 'meta', children: d ? `${d.hidden ? `${d.hidden} done/snoozed · ` : ''}checked ${new Date(s.at).toLocaleTimeString()}` : s.error ? '' : 'checking Bots, crons, keys, PRs…' }),
     d ? jsx('button', { type: 'button', onClick: foldAll, children: allFolded ? 'Expand all' : 'Collapse all' }) : null,
-    jsx('button', { type: 'button', onClick: () => refresh(), disabled: Boolean(s.inflight), children: s.inflight ? 'Checking…' : 'Check now' }),
+    jsx('button', { type: 'button', onClick: () => refresh(), disabled: busy(s), children: busy(s) ? 'Checking…' : 'Check now' }),
     d ? jsx('div', { className: 'tabs', role: 'tablist', children: tabs.map(([t, label]) => jsxs('button', {
       type: 'button', role: 'tab', 'aria-selected': current === t, className: current === t ? 'tab on' : 'tab', onClick: () => openTab(t),
       title: sourceOn(t) ? `${label} inbox` : `Click to read ${label} sessions that are waiting on you`,
-      children: [label, sourceOn(t) ? jsx('span', { children: tabCount(t) }) : jsx('span', { className: 'dim', children: '…' })] }, t)) }) : null,
+      children: [label, loaded(t) ? jsx('span', { children: tabCount(t) }) : jsx('span', { className: 'dim', children: s.inflight[t] ? '…' : '·' })] }, t)) }) : null,
     d ? jsx('div', { className: 'tally', children: LANES.map((l) => {
       const n = items.filter((i) => i.priority === l.key).length
       return jsx('span', { className: `${n ? 'on' : ''}${folded[l.key] ? ' off' : ''}`, style: { '--t': l.color }, title: folded[l.key] ? 'Show this section' : 'Fold this section', onClick: () => fold(l.key), children: `${n} ${l.label.toLowerCase()}` }, l.key)
     }) }) : null,
   ] })
   const errs = d ? Object.entries(d.errors || {}) : []
+  const cur = s.apps[current === 'xstudio' ? 'base' : current === 'hermes' ? 'base' : current]
+  const truncated = cur && cur.truncated
   return jsxs('div', { className: 'hin', children: [
     jsx('style', { children: CSS }),
     head,
     jsx('div', { className: 'scroll', children: !d
-      ? (s.error ? jsx('div', { style: { color: C.red, fontSize: 12.5 }, children: `Could not read the inbox: ${s.error}. Is the hermes-agent-inbox plugin switched on (Settings → Plugins)?` }) : null)
+      ? (s.error ? jsx('div', { style: { color: C.red, fontSize: 12.5 }, children: `Could not read the inbox: ${String(s.error).slice(0, 300)}. Is the hermes-agent-inbox plugin switched on (Settings → Plugins)?` }) : null)
       : [
-        items.length ? null : jsx('div', { className: 'zero', children: !sourceOn(current) ? 'Reading…' : current === 'hermes' ? 'Inbox zero. No Bot is waiting on you.' : `Nothing from ${(TABS.find(([t]) => t === current) || [])[1]} is waiting on you.` }, 'zero'),
+        items.length ? null : jsx('div', { className: 'zero', children: !loaded(current) || s.inflight[current] ? 'Reading…' : current === 'hermes' ? 'Inbox zero. No Bot is waiting on you.' : `Nothing from ${(TABS.find(([t]) => t === current) || [])[1]} is waiting on you.` }, 'zero'),
+        truncated ? jsx('div', { className: 'warn', children: `${truncated} more card${truncated === 1 ? '' : 's'} didn't fit on this page; \`hermes inbox\` in a terminal shows them all.` }, 'trunc') : null,
         ...LANES.map((lane) => jsx(Lane, { lane, items: items.filter((i) => i.priority === lane.key), folded: Boolean(folded[lane.key]), onFold: () => fold(lane.key), openId, setOpenId }, lane.key)),
         errs.length ? jsx('div', { className: 'warn', children: `Couldn't read: ${errs.map(([k, v]) => `${k} (${v})`).join(' · ')}` }, 'errs') : null,
         jsx('div', { className: 'note', children: 'Chats show only the title and how they ended, never the messages. Done hides a card until it changes; Snooze hides it for a day.' }, 'note'),
@@ -340,7 +354,7 @@ function InboxPage() {
 
 function StatusChip() {
   const s = useInbox()
-  if (!s.data) return null
+  if (!s.apps.base) return null
   const items = shown(s).filter((i) => appOf(i) === 'hermes')  // the chip is Hermes only; other agents show only on their tab
   const now = items.filter((i) => i.priority === 'now').length
   const today = items.filter((i) => i.priority === 'today').length

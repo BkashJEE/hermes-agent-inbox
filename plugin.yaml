@@ -1,5 +1,5 @@
 name: hermes-agent-inbox
-version: "0.5.0"
+version: "0.5.1"
 manifest_version: 2
 api_version: 1
 description: "Everything your Hermes Bots and tools need from you, in one list: Bots stuck on a sign-in or an approval, questions you haven't answered, failed cron jobs, benched keys, PRs to merge and X Studio drafts to review. Inside Hermes Desktop, as /inbox, and as `hermes inbox`. Read-only."

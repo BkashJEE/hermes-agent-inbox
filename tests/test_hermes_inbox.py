@@ -1,4 +1,5 @@
 """Hermes Inbox's decisions, without Hermes, GitHub or X Studio."""
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -194,7 +195,7 @@ class Pending(unittest.TestCase):
         it = h.transcript_item("codex", "abc", "t", "assistant", "Want me to post it?", NOW, "/w", NOW, path="/home/me/.codex/sessions/x.jsonl")
         m = it["more"][0]
         self.assertEqual((m["kind"], m["app"], m["path"]), ("hermes-import", "codex", "/home/me/.codex/sessions/x.jsonl"))
-        self.assertIn("hermes sessions import --from codex", m["value"])
+        self.assertNotIn("value", m)  # the page and the CLI build the import command from app + path
 
     def test_unanswered_tool_call_is_an_approval(self):
         it = h.transcript_item("claude", "s", "Deploy", "assistant", "", NOW, "/w", NOW, "waiting on your approval", [["Waiting on", "Bash: npm publish"]])
@@ -213,6 +214,19 @@ class Pending(unittest.TestCase):
                 self.assertEqual(h.src_filed(NOW), [])
             finally:
                 h.FILED = old
+
+
+class Fit(unittest.TestCase):
+    def test_drops_lowest_priority_cards_until_it_fits(self):
+        data = {"items": [item("a", "now"), item("b", "today"), item("c", "later")], "summary": {}}
+        out = h.fit_bytes(data, max_bytes=len(json.dumps({"items": [item("a", "now"), item("b", "today")], "summary": {}, "truncated": 1}, separators=(",", ":"))) + 40)
+        self.assertEqual([i["id"] for i in out["items"]], ["a", "b"])
+        self.assertEqual(out["truncated"], 1)
+        self.assertEqual(out["summary"], {"now": 1, "today": 1, "later": 0})
+
+    def test_nothing_dropped_when_it_fits(self):
+        out = h.fit_bytes({"items": [item("a")], "summary": {}}, max_bytes=10_000)
+        self.assertNotIn("truncated", out)
 
 
 class Time(unittest.TestCase):

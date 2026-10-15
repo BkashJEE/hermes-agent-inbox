@@ -85,7 +85,7 @@ Then switch it on in **Hermes Desktop → Settings → Plugins**. Desktop starts
 ```bash
 hermes inbox                       # the list
 hermes inbox --source crons        # one source
-hermes inbox --json                # for tools
+hermes inbox --json                # for tools (--app hermes|claude|codex|xstudio for one tab; stays under --max-bytes)
 hermes inbox done ID               # hide until it changes
 hermes inbox snooze ID 24          # hide for 24 h
 hermes inbox add "Title" [...]     # post a card
@@ -127,7 +127,7 @@ Each source fails soft. If one can't be read, the others still show, with a one-
 ## Develop
 
 ```bash
-python3 -m unittest discover -s tests     # 28 tests, no Hermes needed
+python3 -m unittest discover -s tests     # 30 tests, no Hermes needed
 python3 hermes_inbox.py                   # runs without Hermes's CLI
 ```
 

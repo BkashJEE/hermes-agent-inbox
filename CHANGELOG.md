@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1 — 2026-10-15
+
+- **Fix: the page filled with raw JSON once Claude had many cards.** The Desktop gateway cuts command output at 48,000 characters; the whole inbox in one response had grown past that. Each tab is now fetched on its own (`hermes inbox --json --app hermes|claude|codex|xstudio`), Claude and Codex only when their tab is opened, and `--json` never exceeds `--max-bytes` (46,000): the lowest-priority cards are dropped and the page says how many.
+- The import command is no longer duplicated in every Claude/Codex card.
+
 ## 0.5.0 — 2026-10-15
 
 - **Continue in Hermes →** on Claude Code and Codex cards: imports the session with `hermes sessions import` and opens it as a Hermes chat in the Desktop. The CLI prints the same command under each card.

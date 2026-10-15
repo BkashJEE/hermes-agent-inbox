@@ -374,8 +374,7 @@ def transcript_item(app: str, sid: str, title: str, last_role: str, last_text: s
             "facts": (extra or []) + [["Session", title], ["Folder", cwd or "?"], ["Last active", when(at)]],
             # Hermes can take the session over: `hermes sessions import` copies it into the Hermes store
             # (the original file is only read) and it continues as a normal Hermes chat.
-            "more": [{"kind": "hermes-import", "label": "Continue in Hermes", "app": app, "path": path,
-                      "value": f"hermes sessions import --from {app} {json.dumps(path)}"}] if path else [],
+            "more": [{"kind": "hermes-import", "label": "Continue in Hermes", "app": app, "path": path}] if path else [],
             "action": {"kind": "command", "label": "Resume", "value": resume}}
 
 
@@ -741,10 +740,33 @@ def save_state(state: dict) -> None:
     STATE.write_text(json.dumps(state, indent=1))
 
 
-def collect(names: list[str] | None = None) -> dict:
+APP_SOURCES = {  # which sources feed each tab; a tab is fetched on its own so one response stays small
+    "hermes": ["filed", "keys", "vitals", "sessions", "crons", "prs"],
+    "claude": ["claude", "prs"],
+    "codex": ["codex"],
+    "xstudio": ["review"],
+}
+MAX_BYTES = 46_000  # the Desktop gateway cuts command output at 48,000 characters; never send a broken blob
+
+
+def fit_bytes(data: dict, max_bytes: int = MAX_BYTES) -> dict:
+    """Drop cards from the end (lowest priority, oldest) until the JSON fits; say how many were dropped."""
+    dropped = 0
+    while len(json.dumps(data, separators=(",", ":"))) > max_bytes and data["items"]:
+        data["items"].pop()
+        dropped += 1
+    if dropped:
+        data["truncated"] = dropped
+        data["summary"] = {p: sum(1 for i in data["items"] if i["priority"] == p) for p in PRIORITY}
+    return data
+
+
+def collect(names: list[str] | None = None, apps: list[str] | None = None) -> dict:
     now = time.time()
     items, errors, counts = [], {}, {}
     enabled = config().get("sources") or {}
+    if apps:
+        names = sorted({src for a in apps for src in APP_SOURCES.get(a, [])})
     for name, fn in SOURCES.items():
         if (names and name not in names) or enabled.get(name) is False:
             continue
@@ -756,6 +778,8 @@ def collect(names: list[str] | None = None) -> dict:
             errors[name] = f"{type(e).__name__}: {e}"[:160]
     for it in items:
         it.setdefault("app", APP.get(it["source"], "hermes"))
+    if apps:
+        items = [it for it in items if it["app"] in apps]
     merged = collapse_sessions(items)
     shown = visible(merged, load_state(), now)
     switches = {name: bool((config().get("sources") or {}).get(name)) for name in OPT_IN}
@@ -772,7 +796,7 @@ def render(data: dict) -> str:
             lines.append(f"          {it['action']['label']}: {it['action']['value']}")
         for m in it.get("more") or []:
             if m.get("kind") == "hermes-import":
-                lines.append(f"          {m['label']}: {m['value']}")
+                lines.append(f"          {m['label']}: hermes sessions import --from {m['app']} {json.dumps(m['path'])}")
     for k, v in data["errors"].items():
         lines.append(f"  (couldn't read {k}: {v})")
     return "\n".join(lines)
@@ -784,6 +808,8 @@ def add_arguments(ap) -> None:
     ap.add_argument("target", nargs="*", help="add TITLE | done ID | snooze ID HOURS | set SOURCE on|off | demo on|off")
     ap.add_argument("--json", action="store_true", help="one-line JSON (the Desktop page reads this)")
     ap.add_argument("--source", action="append", help="only this source: " + ", ".join(SOURCES))
+    ap.add_argument("--app", action="append", help="only this tab: " + ", ".join(APP_SOURCES))
+    ap.add_argument("--max-bytes", type=int, default=MAX_BYTES, help="keep --json under this size by dropping the last cards")
     add = ap.add_argument_group("add (post a card, e.g. from a Bot or a cron job)")
     add.add_argument("--detail", default="")
     add.add_argument("--priority", default="today", choices=list(PRIORITY))
@@ -826,8 +852,10 @@ def dispatch(a) -> str:
             raise ValueError("usage: hermes inbox done ID | snooze ID HOURS | reset")
         save_state(st)
         return json.dumps({"ok": True})
-    data = collect(getattr(a, "source", None))
-    return json.dumps(data, separators=(",", ":")) if getattr(a, "json", False) else render(data)
+    data = collect(getattr(a, "source", None), getattr(a, "app", None))
+    if getattr(a, "json", False):
+        return json.dumps(fit_bytes(data, getattr(a, "max_bytes", MAX_BYTES)), separators=(",", ":"))
+    return render(data)
 
 
 def main() -> int:
