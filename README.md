@@ -116,7 +116,10 @@ python3 -m unittest discover -s tests     # 19 tests, no Hermes needed
 python3 hermes_inbox.py                   # runs without Hermes's CLI
 ```
 
-The page harness is `harness/index.html`, using a mock of `@hermes/plugin-sdk`. Save `hermes inbox --json > harness/live.json` first.
+The page harness is `harness/index.html`, using a mock of `@hermes/plugin-sdk`.
+
+- **Demo:** `python3 harness/serve.py` serves it at http://127.0.0.1:4733/, which opens the demo with sample data. It's safe to show or record.
+- **Your own data:** use `/live` instead, after `hermes inbox --json > harness/live.json`.
 
 ## License
 
