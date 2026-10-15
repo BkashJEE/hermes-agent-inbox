@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1 — 2026-10-15
+
+- A session written to in the last 3 minutes (`active_grace_seconds`) is still running, so its open tool call is not reported as a permission prompt. Before, the session that ran `hermes inbox` itself showed up as waiting.
+
 ## 0.4.0 — 2026-10-15
 
 - **Permission prompts count as waiting.** A Claude Code session whose last tool call (a Bash command, an AskUserQuestion) was never answered is stopped at a prompt nobody saw; it now shows as "waiting on your approval" (Now), with the command in the card. Same for a Codex thread ending on an unanswered tool call.

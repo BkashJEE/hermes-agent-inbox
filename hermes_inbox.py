@@ -396,6 +396,12 @@ def agent_hours() -> float:
     return float(config().get("agent_hours", 24 * 7))  # other agents: a week, since their sessions sit longer
 
 
+def active_grace() -> float:
+    """A session written to in the last few minutes is still running: its open tool call is work in
+    progress, not a prompt nobody answered."""
+    return float(config().get("active_grace_seconds", 180))
+
+
 def src_claude(now: float, hours: float | None = None) -> list[dict]:
     """Claude Code sessions in ~/.claude/projects (opt in: "sources": {"claude": true}).
     Waiting = the assistant spoke last and ended stuck / on a question / on an offer, or its last tool call
@@ -434,7 +440,7 @@ def src_claude(now: float, hours: float | None = None) -> list[dict]:
                         continue  # a tool result, not you replying
                     role, text = t, body
             kind, extra = None, None
-            if last_tool and last_tool.get("id") not in answered:
+            if last_tool and last_tool.get("id") not in answered and now - mtime > active_grace():
                 name = str(last_tool.get("name") or "a tool")
                 kind = "asked you a question" if name == "AskUserQuestion" else "waiting on your approval"
                 inp = last_tool.get("input") or {}
@@ -491,7 +497,7 @@ def src_codex(now: float, hours: float | None = None) -> list[dict]:
                             continue  # context Codex injects, not you replying
                         role, text, last_kind = p["role"], body, "msg"
             sid = sid or f.stem[-36:]
-            kind = "waiting on your approval" if last_kind == "call" else None
+            kind = "waiting on your approval" if last_kind == "call" and now - mtime > active_grace() else None
             item = transcript_item("codex", sid, names.get(sid, ""), role, text, mtime, cwd, now, kind, [["Waiting on", "a tool call"]] if kind else None)
             if item:
                 items.append(item)
