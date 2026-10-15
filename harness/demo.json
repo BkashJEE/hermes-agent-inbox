@@ -309,7 +309,7 @@
     "label": "Open PR",
     "value": "https://github.com/acme/hermes-weather/pull/12"
    },
-   "app": "github"
+   "app": "hermes"
   },
   {
    "id": "pr:acme/agent-dashboard#48",
@@ -320,6 +320,10 @@
    "ago": 259200,
    "why": "main moved on; it needs a rebase before it can merge.",
    "facts": [
+    [
+     "Opened by",
+     "a Claude Code session"
+    ],
     [
      "Repo",
      "acme/agent-dashboard"
@@ -341,7 +345,8 @@
     "label": "Open PR",
     "value": "https://github.com/acme/agent-dashboard/pull/48"
    },
-   "app": "github"
+   "app": "claude",
+   "agent": "Claude Code"
   },
   {
    "id": "pr:acme/hermes-weather#9",
@@ -373,7 +378,7 @@
     "label": "Open PR",
     "value": "https://github.com/acme/hermes-weather/pull/9"
    },
-   "app": "github"
+   "app": "hermes"
   },
   {
    "id": "pr:acme/notes-sync#4",
@@ -384,6 +389,10 @@
    "ago": 691200,
    "why": "main moved on; it needs a rebase before it can merge.",
    "facts": [
+    [
+     "Opened by",
+     "a Claude Code session"
+    ],
     [
      "Repo",
      "acme/notes-sync"
@@ -405,39 +414,8 @@
     "label": "Open PR",
     "value": "https://github.com/acme/notes-sync/pull/4"
    },
-   "app": "github"
-  },
-  {
-   "id": "pr:acme/old-experiment#2",
-   "source": "prs",
-   "priority": "later",
-   "title": "Ready to merge: old-experiment #2",
-   "detail": "Try a websocket transport",
-   "ago": 3888000,
-   "why": "Checks pass and it merges cleanly.",
-   "facts": [
-    [
-     "Repo",
-     "acme/old-experiment"
-    ],
-    [
-     "Title",
-     "Try a websocket transport"
-    ]
-   ],
-   "more": [
-    {
-     "kind": "command",
-     "label": "Copy checkout command",
-     "value": "gh pr checkout 2 -R acme/old-experiment"
-    }
-   ],
-   "action": {
-    "kind": "url",
-    "label": "Open PR",
-    "value": "https://github.com/acme/old-experiment/pull/2"
-   },
-   "app": "github"
+   "app": "claude",
+   "agent": "Claude Code"
   },
   {
    "id": "pr:acme/agent-dashboard#31",
@@ -448,6 +426,10 @@
    "ago": 5184000,
    "why": "Checks pass and it merges cleanly.",
    "facts": [
+    [
+     "Opened by",
+     "a Claude Code session"
+    ],
     [
      "Repo",
      "acme/agent-dashboard"
@@ -469,7 +451,8 @@
     "label": "Open PR",
     "value": "https://github.com/acme/agent-dashboard/pull/31"
    },
-   "app": "github"
+   "app": "claude",
+   "agent": "Claude Code"
   }
  ],
  "counts": {},

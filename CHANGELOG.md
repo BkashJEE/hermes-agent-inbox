@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 — 2026-10-15
+
+- **One inbox per agent.** The Hermes tab is Hermes work only: PRs are included only from Hermes repos (`hermes_repos`, default `["hermes"]`). Other PRs are left out.
+- **Claude's own inbox:** with the Claude Code switch on, its tab shows Claude's waiting sessions and the PRs its sessions opened (from Claude Code's `pr-link` records).
+- **Codex (ChatGPT)** tab: its waiting threads.
+- Flipping a switch on jumps to that tab. The GitHub tab is gone.
+
 ## 0.2.1 — 2026-10-15
 
 - **Hermes is the default tab.**

@@ -466,38 +466,115 @@ def src_codex(now: float, hours: float = 48) -> list[dict]:
 
 
 PR_CACHE = STATE.parent / "prs-cache.json"
+CLAUDE_PR_CACHE = STATE.parent / "claude-prs.json"
+
+
+def pr_app(repo: str, n: int, hermes_patterns: list[str], claude_prs: set[str], claude_on: bool) -> str | None:
+    """Which tab a PR belongs to. Hermes work is any repo whose name contains one of `hermes_repos`
+    (default: "hermes"); a PR that a Claude Code session opened belongs to Claude when that switch is on.
+    Anything else is not your agents' work and is left out."""
+    name = repo.lower()
+    if any(pat.lower() in name for pat in hermes_patterns):
+        return "hermes"
+    if claude_on and f"{repo}#{n}" in claude_prs:
+        return "claude"
+    return None
+
+
+def claude_pr_links() -> dict[str, list[str]]:
+    """repo -> ["repo#n", ...] for PRs that Claude Code sessions opened (its `pr-link` records).
+    Each transcript is rescanned only when its size or mtime changes."""
+    try:
+        cache = json.loads(CLAUDE_PR_CACHE.read_text())
+    except (OSError, ValueError):
+        cache = {}
+    out: dict[str, set[str]] = {}
+    fresh = {}
+    for f in (HOME / ".claude" / "projects").glob("*/*.jsonl"):
+        try:
+            st = f.stat()
+        except OSError:
+            continue
+        key = str(f)
+        entry = cache.get(key)
+        if not entry or entry.get("size") != st.st_size or entry.get("mtime") != st.st_mtime:
+            links = []
+            try:
+                with f.open("rb") as fh:
+                    for line in fh:
+                        if b'"pr-link"' not in line:
+                            continue
+                        try:
+                            d = json.loads(line)
+                        except ValueError:
+                            continue
+                        if d.get("type") == "pr-link" and d.get("prRepository") and d.get("prNumber"):
+                            links.append(f"{d['prRepository']}#{d['prNumber']}")
+            except OSError:
+                continue
+            entry = {"size": st.st_size, "mtime": st.st_mtime, "links": sorted(set(links))}
+        fresh[key] = entry
+        for link in entry["links"]:
+            out.setdefault(link.split("#")[0], set()).add(link)
+    try:
+        CLAUDE_PR_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        CLAUDE_PR_CACHE.write_text(json.dumps(fresh))
+    except OSError:
+        pass
+    return {k: sorted(v) for k, v in out.items()}
 
 
 def src_prs(now: float, max_age: float = 600) -> list[dict]:
-    """Checking every PR's mergeability is slow (one call each), so the result is reused for 10 minutes."""
+    """Checking every PR's mergeability is slow (one call each), so the raw result is reused for 10 minutes."""
+    raw = None
     try:
         cached = json.loads(PR_CACHE.read_text())
         if now - cached["at"] < max_age:
-            return cached["items"]
+            raw = cached["prs"]
     except (OSError, ValueError, KeyError):
         pass
-    items = _src_prs(now)
-    PR_CACHE.parent.mkdir(parents=True, exist_ok=True)
-    PR_CACHE.write_text(json.dumps({"at": now, "items": items}))
+    if raw is None:
+        raw = _fetch_prs(now)
+        PR_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        PR_CACHE.write_text(json.dumps({"at": now, "prs": raw}))
+    cfg = config()
+    patterns = cfg.get("hermes_repos") or ["hermes"]
+    claude_on = bool((cfg.get("sources") or {}).get("claude"))
+    linked = set()
+    if claude_on:
+        for links in claude_pr_links().values():
+            linked.update(links)
+    items = []
+    for pr in raw:
+        app = pr_app(pr["repo"], pr["n"], patterns, linked, claude_on)
+        if not app:
+            continue
+        it = pr_item({**pr, "now": now, "stale_days": cfg.get("stale_pr_days", 30)})
+        if not it:
+            continue
+        it["app"] = app
+        if app == "claude":
+            it["agent"] = "Claude Code"
+            it["facts"] = [["Opened by", "a Claude Code session"]] + (it.get("facts") or [])
+        items.append(it)
     return items
 
 
-def _src_prs(now: float) -> list[dict]:
+def _fetch_prs(now: float) -> list[dict]:
+    """Your open PRs with their state, before any tab filtering (so a switch flip needs no refetch)."""
     listing = run_json(["gh", "search", "prs", "--author", "@me", "--state", "open", "--json", "repository,number,title,url,updatedAt", "--limit", "100"], 60)
     if not isinstance(listing, list):
         return []
     ignore = set(config().get("ignore_repos") or [])
     mine = [p for p in listing if not p["repository"]["nameWithOwner"].startswith("NousResearch/") and p["repository"]["nameWithOwner"] not in ignore]
 
-    def one(p: dict) -> dict | None:
+    def one(p: dict) -> dict:
         repo = p["repository"]["nameWithOwner"]
         d = run_json(["gh", "pr", "view", str(p["number"]), "-R", repo, "--json", "isDraft,baseRefName,mergeable,mergeStateStatus,statusCheckRollup"], 30) or {}
-        return pr_item({"repo": repo, "n": p["number"], "title": p["title"], "url": p["url"], "cat": classify_pr(d), "now": now, "stale_days": config().get("stale_pr_days", 30),
-                        "at": iso_ts(p.get("updatedAt"))})
+        return {"repo": repo, "n": p["number"], "title": p["title"], "url": p["url"], "cat": classify_pr(d), "at": iso_ts(p.get("updatedAt"))}
 
     with ThreadPoolExecutor(max_workers=8) as pool:  # one gh call per PR; in parallel it's seconds, not a minute
-        items = [it for it in pool.map(one, mine) if it]
-    return items
+        return list(pool.map(one, mine))
 
 
 def src_review(now: float) -> list[dict]:
@@ -582,7 +659,7 @@ def remove_card(item_id: str) -> bool:
     return False
 
 
-APP = {"prs": "github", "review": "xstudio", "claude": "claude", "codex": "codex"}
+APP = {"prs": "hermes", "review": "xstudio", "claude": "claude", "codex": "codex"}
 
 SOURCES = {"filed": src_filed, "claude": src_claude, "codex": src_codex, "keys": src_keys, "vitals": src_vitals, "sessions": src_sessions, "crons": src_crons, "prs": src_prs, "review": src_review}
 

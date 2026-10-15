@@ -153,15 +153,15 @@ const CSS = `
 .hin .warn{font-size:11.5px;color:var(--ui-orange,#ffa657);margin-bottom:10px}
 `
 const ICON = { claude: 'sparkle', codex: 'terminal', filed: 'mail', keys: 'key', vitals: 'pulse', sessions: 'comment-discussion', crons: 'clock', prs: 'git-pull-request', review: 'eye' }
-const KIND = { claude: 'Claude Code', codex: 'Codex', filed: 'Posted', keys: 'Key Doctor', vitals: 'Vitals', sessions: 'Bot chat', crons: 'Cron job', prs: 'Pull request', review: 'X Studio' }
+const KIND = { claude: 'Claude Code', codex: 'Codex (ChatGPT)', filed: 'Posted', keys: 'Key Doctor', vitals: 'Vitals', sessions: 'Bot chat', crons: 'Cron job', prs: 'Pull request', review: 'X Studio' }
 // Tabs: one per app that has something waiting. The status-bar chip always counts every tab.
-const TABS = [['hermes', 'Hermes'], ['claude', 'Claude'], ['codex', 'Codex'], ['github', 'GitHub'], ['xstudio', 'X Studio'], ['all', 'All']]
+const TABS = [['hermes', 'Hermes'], ['claude', 'Claude'], ['codex', 'Codex'], ['xstudio', 'X Studio'], ['all', 'All']]
 const TAB_KEY = 'hermes-inbox.tab.v2'
 const loadTab = () => { try { return localStorage.getItem(TAB_KEY) || 'hermes' } catch { return 'hermes' } }
 const saveTab = (t) => { try { localStorage.setItem(TAB_KEY, t) } catch { /* fine */ } }
 const appOf = (it) => it.app || 'hermes'
 // Other agent apps are off until switched on here; the choice is saved in ~/.hermes/inbox.json.
-const SWITCHES = [['claude', 'Claude Code'], ['codex', 'Codex']]
+const SWITCHES = [['claude', 'Claude Code'], ['codex', 'Codex (ChatGPT)']]
 async function flipSource(name, on) {
   if (store.data) store.data = { ...store.data, switches: { ...(store.data.switches || {}), [name]: on } }
   notify()
@@ -277,7 +277,7 @@ function InboxPage() {
             const on = Boolean(d.switches && d.switches[name])
             return jsxs('button', { type: 'button', role: 'switch', 'aria-checked': on, className: on ? 'sw on' : 'sw',
               title: on ? `Hide ${label} sessions` : `Show ${label} sessions that are waiting on you`,
-              onClick: () => flipSource(name, !on), children: [jsx('i', { className: 'knob' }), label] }, name)
+              onClick: () => { flipSource(name, !on); if (!on) setTab(name); else if (current === name) setTab('hermes') }, children: [jsx('i', { className: 'knob' }), label] }, name)
           })] })]) }) : null,
     d ? jsx('div', { className: 'tally', children: LANES.map((l) => {
       const n = items.filter((i) => i.priority === l.key).length

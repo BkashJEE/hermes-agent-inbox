@@ -72,6 +72,21 @@ def item(i, priority="today", at=NOW - 100, source="review"):
             "action": {"kind": "url", "label": "Open", "value": "x"}}
 
 
+class PrApp(unittest.TestCase):
+    def test_hermes_repos_go_to_hermes(self):
+        self.assertEqual(h.pr_app("me/hermes-newsroom", 3, ["hermes"], set(), False), "hermes")
+        self.assertEqual(h.pr_app("me/Hermes-Agent-Archive", 3, ["hermes"], set(), False), "hermes")
+        self.assertEqual(h.pr_app("me/screenpolish", 3, ["hermes", "screenpolish"], set(), False), "hermes")
+
+    def test_claude_prs_only_when_the_switch_is_on(self):
+        self.assertEqual(h.pr_app("me/dotfiles", 7, ["hermes"], {"me/dotfiles#7"}, True), "claude")
+        self.assertIsNone(h.pr_app("me/dotfiles", 7, ["hermes"], {"me/dotfiles#7"}, False))
+        self.assertIsNone(h.pr_app("me/dotfiles", 8, ["hermes"], {"me/dotfiles#7"}, True))
+
+    def test_unrelated_prs_are_left_out(self):
+        self.assertIsNone(h.pr_app("me/weekend-game", 1, ["hermes"], set(), True))
+
+
 class Visible(unittest.TestCase):
     def test_sorted_by_priority_then_newest(self):
         out = h.visible([item("a", "later"), item("b", "now", NOW - 500), item("c", "now", NOW - 10)], {}, NOW)

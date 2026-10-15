@@ -24,16 +24,18 @@ Bots can post their own cards too (`hermes inbox add`), so a cron job can ask yo
 | **Crons** | A job's last run failed | Now |
 | **Keys** ([Key Doctor](https://github.com/BkashJEE/hermes-key-doctor), optional) | A Bot can't reach its model; a login is benched, dead or expiring | Now / Today |
 | **Vitals** (optional) | A red alarm | Now |
-| **PRs** (`gh`, optional) | Your PR is ready to merge | Today, or Later if untouched for 30 days |
-| | Your PR has conflicts or failing checks | Later |
+| **PRs** (`gh`, optional) | Your PR in a Hermes repo is ready to merge | Today, or Later if untouched for 30 days |
+| | It has conflicts or failing checks | Later |
 | **Posted** | A Bot or script ran `hermes inbox add` | its choice |
 | **X Studio** (optional) | A draft is waiting for review | Today |
-| **Claude Code** (opt-in) | A session's last message is Claude's and it ended stuck, on a question, or asking you to check something | Now / Today |
-| **Codex** (opt-in) | The same, for Codex threads | Now / Today |
+| **Claude Code** (opt-in) | A session's last message is Claude's and it ended stuck, on a question, or asking you to check something; plus the PRs Claude Code opened | Now / Today |
+| **Codex (ChatGPT)** (opt-in) | The same, for Codex threads | Now / Today |
 
-Every card says **which Bot needs you** (or which Claude Code / Codex session). Tabs along the top split the list by app. **Hermes** is the default tab, followed by GitHub, X Studio and All.
+Every card says **which Bot needs you** (or which Claude Code / Codex session).
 
-**Claude Code and Codex are off until you switch them on.** Use the **Also show** switches on the page, or `hermes inbox set claude on`. When one is on, its own tab appears.
+**One inbox per agent.** The **Hermes** tab is Hermes work only: Bot sessions, crons, keys, Vitals, posted cards, and your PRs in Hermes repos (any repo with `hermes` in its name; add more under `hermes_repos`). PRs in other repos are left out, unless an agent opened them.
+
+**Claude Code and Codex are off until you switch them on.** Flip the **Also show** switches on the page (or `hermes inbox set claude on`) and that agent gets its own tab: its sessions that are waiting on you, and, for Claude Code, the PRs its sessions opened.
 
 Chats show only the session title and how the session ended, never the messages. A daily cron that gets stuck every day shows as **one** card ("also 2 earlier times").
 
@@ -95,6 +97,7 @@ hermes inbox set claude on         # show Claude Code sessions (or codex; off to
 ```json
 {
   "sources": { "prs": false, "claude": true, "codex": false },
+  "hermes_repos": ["hermes", "screenpolish"],
   "ignore_repos": ["me/old-experiment"],
   "stale_pr_days": 30,
   "xstudio_url": "http://127.0.0.1:3417"
@@ -107,9 +110,9 @@ hermes inbox set claude on         # show Claude Code sessions (or codex; off to
   - each profile's `state.db`: session titles, timestamps, and the last assistant reply, which is used only to tell how the session ended;
   - `cron/jobs.json`;
   - Key Doctor's and Vitals' JSON output, if those plugins are installed;
-  - `gh search prs --author @me`, if `gh` is signed in;
+  - `gh search prs --author @me`, if `gh` is signed in (then only PRs in `hermes_repos` repos, or ones a Claude Code session opened, are shown);
   - the X Studio URL, if you set one;
-  - with `claude` / `codex` turned on: the last ~2 MB of each Claude Code session in `~/.claude/projects/` and Codex thread in `~/.codex/sessions/` active in the last 48 h. It reads only the title, the folder, and the last message, to tell how it ended.
+  - with `claude` / `codex` turned on: the last ~2 MB of each Claude Code session in `~/.claude/projects/` and Codex thread in `~/.codex/sessions/` active in the last 48 h. It reads only the title, the folder, and the last message, to tell how it ended. With Claude on, it also scans Claude Code transcripts for their `pr-link` records (repo and PR number only), cached by file size and mtime.
 - **Writes:**
   - `~/.local/state/hermes-inbox/`: done/snooze marks and a 10-minute PR cache;
   - `~/.hermes/inbox/`: posted cards.
@@ -120,7 +123,7 @@ Each source fails soft. If one can't be read, the others still show, with a one-
 ## Develop
 
 ```bash
-python3 -m unittest discover -s tests     # 22 tests, no Hermes needed
+python3 -m unittest discover -s tests     # 25 tests, no Hermes needed
 python3 hermes_inbox.py                   # runs without Hermes's CLI
 ```
 
