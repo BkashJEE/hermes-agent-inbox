@@ -39,7 +39,7 @@ ln -s ~/hermes-inbox/desktop ~/.hermes/desktop-plugins/hermes-inbox
 hermes -p ceo plugins enable hermes-inbox
 ```
 
-Then switch it on under **Desktop Settings → Plugins**. Unified plugins start off.
+Then switch it on under **Desktop Settings → Plugins**. The Desktop marks it as a unified package (it writes `desktop/.hermes-package.json`), and those start off.
 
 ## Notes
 
