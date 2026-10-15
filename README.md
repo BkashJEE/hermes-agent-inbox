@@ -35,7 +35,7 @@ Every card says **which Bot needs you** (or which Claude Code / Codex session).
 
 **One inbox per agent.** The **Hermes** tab is Hermes work only: Bot sessions, crons, keys, Vitals, posted cards, and your PRs in Hermes repos (any repo with `hermes` in its name; add more under `hermes_repos`). PRs in other repos are left out, unless an agent opened them.
 
-**Claude Code and Codex are off until you switch them on.** Flip the **Also show** switches on the page (or `hermes inbox set claude on`) and that agent gets its own tab: its sessions that are waiting on you, and, for Claude Code, the PRs its sessions opened. The **All** tab shows every agent's inbox as its own block.
+**Claude Code and Codex are their own tabs.** Nothing of theirs shows on the Hermes tab or in the status-bar count. Click the **Claude** or **Codex (ChatGPT)** tab and you get that agent's inbox: its sessions that are waiting on you, and, for Claude Code, the PRs its sessions opened. The first click turns that source on (`hermes inbox set claude off` turns it back off).
 
 Chats show only the session title and how the session ended, never the messages. A daily cron that gets stuck every day shows as **one** card ("also 2 earlier times").
 

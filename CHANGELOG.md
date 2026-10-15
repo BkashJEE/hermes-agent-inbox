@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.3 — 2026-10-15
+
+- **Claude and Codex appear only when you click their tab.** No switches, no All tab. Hermes is the default; the Claude and Codex (ChatGPT) tabs are always there, and the first click on one turns its source on. Nothing of theirs shows on the Hermes tab or in the status-bar count.
+
 ## 0.3.2 — 2026-10-15
 
 - **Links work in Hermes Desktop.** "Open PR" and "Open X Studio" now open through the Desktop's OS link handler (`ctx.os.openExternal`); the Desktop blocks ordinary new-window links from plugins, so they did nothing before.

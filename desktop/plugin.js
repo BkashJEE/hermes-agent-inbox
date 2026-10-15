@@ -131,7 +131,7 @@ const CSS = `
 .hin h1{font-size:22px;letter-spacing:-.5px;font-weight:600;margin:0}
 .hin .sub{font-size:12px;color:var(--ui-text-tertiary,#a6a4b0)}
 .hin .meta{margin-left:auto;font:11px ${MONO};color:var(--ui-text-tertiary,#a6a4b0)}
-.hin .tabs{display:flex;gap:4px;width:100%;margin:2px 0 -2px;border-bottom:1px solid var(--ui-stroke-tertiary,#34343b)}.hin .head .tab{font:13px system-ui,sans-serif;padding:7px 12px;border:0;border-radius:0;background:transparent;color:var(--ui-text-tertiary,#a6a4b0);cursor:pointer;display:flex;gap:7px;align-items:center}.hin .tab span{font:11px ${MONO};padding:0 6px;border-radius:999px;background:var(--ui-bg-quaternary,#24242b);color:var(--ui-text-secondary,#b8b6c2)}.hin .head .tab:hover{color:var(--ui-text-primary,#eeedf2)}.hin .head .tab.on{color:var(--ui-text-primary,#eeedf2);box-shadow:0 2px 0 var(--ui-accent,#4a84fe)}.hin .tab.on span{background:color-mix(in srgb,var(--ui-accent,#4a84fe) 25%,transparent);color:var(--ui-text-primary,#eeedf2)}.hin .switches{margin-left:auto;display:flex;align-items:center;gap:6px;padding-bottom:4px}.hin .sw-label{font-size:11px;color:var(--ui-text-quaternary,#6e7681);margin-right:2px}.hin .head .sw{display:flex;align-items:center;gap:6px;font:12px system-ui,sans-serif;padding:3px 9px 3px 4px;border-radius:999px;border:1px solid var(--ui-stroke-tertiary,#34343b);background:transparent;color:var(--ui-text-tertiary,#a6a4b0);cursor:pointer}.hin .sw .knob{width:22px;height:12px;border-radius:999px;background:var(--ui-bg-quaternary,#24242b);position:relative;transition:background .15s}.hin .sw .knob:after{content:'';position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:var(--ui-text-quaternary,#6e7681);transition:transform .15s,background .15s}.hin .head .sw.on{color:var(--ui-text-primary,#eeedf2);border-color:color-mix(in srgb,var(--ui-accent,#4a84fe) 50%,transparent)}.hin .sw.on .knob{background:color-mix(in srgb,var(--ui-accent,#4a84fe) 45%,transparent)}.hin .sw.on .knob:after{transform:translateX(10px);background:#fff}.hin .app-group{margin:0 0 18px;padding:10px 14px 2px;border:1px solid var(--ui-stroke-quaternary,#2c2b34);border-radius:12px;background:color-mix(in srgb,var(--ui-bg-elevated,#010409) 60%,transparent)}.hin .head .app-title,.hin .app-title{display:flex;align-items:center;gap:9px;margin:0 0 10px;padding:2px 4px;border:0;background:transparent;color:var(--ui-text-primary,#eeedf2);cursor:pointer;font:inherit;border-radius:6px}.hin .app-title b{font-size:14px;letter-spacing:-.2px}.hin .app-title .codicon{font-size:15px;color:var(--ui-accent,#4a84fe)}.hin .app-title span{font:11px ${MONO};padding:0 7px;border-radius:999px;background:var(--ui-bg-quaternary,#24242b);color:var(--ui-text-secondary,#b8b6c2)}.hin .app-title .go-arrow{font-size:12px;color:var(--ui-text-quaternary,#6e7681);opacity:0;transition:opacity .15s}.hin .app-title:hover .go-arrow{opacity:1}.hin .app-group .lane{margin:2px 0 12px}.hin .app-group .lane-title{margin-bottom:8px}.hin .tally{display:flex;gap:8px;width:100%}
+.hin .tabs{display:flex;gap:4px;width:100%;margin:2px 0 -2px;border-bottom:1px solid var(--ui-stroke-tertiary,#34343b)}.hin .head .tab{font:13px system-ui,sans-serif;padding:7px 12px;border:0;border-radius:0;background:transparent;color:var(--ui-text-tertiary,#a6a4b0);cursor:pointer;display:flex;gap:7px;align-items:center}.hin .tab span.dim{opacity:.5}.hin .tab span{font:11px ${MONO};padding:0 6px;border-radius:999px;background:var(--ui-bg-quaternary,#24242b);color:var(--ui-text-secondary,#b8b6c2)}.hin .head .tab:hover{color:var(--ui-text-primary,#eeedf2)}.hin .head .tab.on{color:var(--ui-text-primary,#eeedf2);box-shadow:0 2px 0 var(--ui-accent,#4a84fe)}.hin .tab.on span{background:color-mix(in srgb,var(--ui-accent,#4a84fe) 25%,transparent);color:var(--ui-text-primary,#eeedf2)}.hin .tally{display:flex;gap:8px;width:100%}
 .hin .tally span{font:600 11px ${MONO};letter-spacing:.06em;padding:3px 9px;border-radius:999px;border:1px solid var(--ui-stroke-tertiary,#34343b);color:var(--ui-text-quaternary,#6e7681)}
 .hin .tally .on{color:var(--t);border-color:color-mix(in srgb,var(--t) 55%,transparent);background:color-mix(in srgb,var(--t) 10%,transparent)}
 .hin .scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-gutter:stable;padding:18px clamp(20px,3vw,40px) 32px}
@@ -168,14 +168,14 @@ const CSS = `
 const ICON = { claude: 'sparkle', codex: 'terminal', filed: 'mail', keys: 'key', vitals: 'pulse', sessions: 'comment-discussion', crons: 'clock', prs: 'git-pull-request', review: 'eye' }
 const KIND = { claude: 'Claude Code', codex: 'Codex (ChatGPT)', filed: 'Posted', keys: 'Key Doctor', vitals: 'Vitals', sessions: 'Bot chat', crons: 'Cron job', prs: 'Pull request', review: 'X Studio' }
 // Tabs: one per app that has something waiting. The status-bar chip always counts every tab.
-const TABS = [['hermes', 'Hermes'], ['claude', 'Claude'], ['codex', 'Codex'], ['xstudio', 'X Studio'], ['all', 'All']]
+// Hermes is the default. Claude and Codex are tabs you click: nothing of theirs shows anywhere else.
+const TABS = [['hermes', 'Hermes'], ['claude', 'Claude'], ['codex', 'Codex (ChatGPT)'], ['xstudio', 'X Studio']]
+const ON_CLICK = ['claude', 'codex']  // their source is switched on the first time you open the tab
 const TAB_KEY = 'hermes-inbox.tab.v2'
 const loadTab = () => { try { return localStorage.getItem(TAB_KEY) || 'hermes' } catch { return 'hermes' } }
 const saveTab = (t) => { try { localStorage.setItem(TAB_KEY, t) } catch { /* fine */ } }
 const appOf = (it) => it.app || 'hermes'
 // Other agent apps are off until switched on here; the choice is saved in ~/.hermes/inbox.json.
-const APP_ICON = { hermes: 'hubot', claude: 'sparkle', codex: 'terminal', xstudio: 'eye' }
-const SWITCHES = [['claude', 'Claude Code'], ['codex', 'Codex (ChatGPT)']]
 async function flipSource(name, on) {
   if (store.data) store.data = { ...store.data, switches: { ...(store.data.switches || {}), [name]: on } }
   notify()
@@ -274,9 +274,11 @@ function InboxPage() {
   const d = s.data
   const all = shown(s)
   const tabCount = (t) => (t === 'all' ? all.length : all.filter((i) => appOf(i) === t).length)
-  const tabs = TABS.filter(([t]) => t === 'all' || t === 'hermes' || tabCount(t) > 0)
+  const tabs = TABS.filter(([t]) => t === 'hermes' || ON_CLICK.includes(t) || tabCount(t) > 0)
   const current = tabs.some(([t]) => t === tab) ? tab : 'hermes'
-  const items = current === 'all' ? all : all.filter((i) => appOf(i) === current)
+  const items = all.filter((i) => appOf(i) === current)
+  const sourceOn = (t) => !ON_CLICK.includes(t) || Boolean(d && d.switches && d.switches[t])
+  const openTab = (t) => { if (!sourceOn(t)) flipSource(t, true); setTab(t) }
   const head = jsxs('div', { className: 'head', children: [
     jsx('h1', { children: 'Inbox' }),
     jsx('span', { className: 'sub', children: 'everything your Bots and tools are waiting on you for' }),
@@ -284,15 +286,9 @@ function InboxPage() {
     d ? jsx('button', { type: 'button', onClick: foldAll, children: allFolded ? 'Expand all' : 'Collapse all' }) : null,
     jsx('button', { type: 'button', onClick: () => refresh(), disabled: Boolean(s.inflight), children: s.inflight ? 'Checking…' : 'Check now' }),
     d ? jsx('div', { className: 'tabs', role: 'tablist', children: tabs.map(([t, label]) => jsxs('button', {
-      type: 'button', role: 'tab', 'aria-selected': current === t, className: current === t ? 'tab on' : 'tab', onClick: () => setTab(t),
-      children: [label, jsx('span', { children: tabCount(t) })] }, t)).concat([
-        jsxs('div', { className: 'switches', key: 'sw', children: [jsx('span', { className: 'sw-label', children: 'Also show' }),
-          ...SWITCHES.map(([name, label]) => {
-            const on = Boolean(d.switches && d.switches[name])
-            return jsxs('button', { type: 'button', role: 'switch', 'aria-checked': on, className: on ? 'sw on' : 'sw',
-              title: on ? `Hide ${label} sessions` : `Show ${label} sessions that are waiting on you`,
-              onClick: () => { flipSource(name, !on); if (!on) setTab(name); else if (current === name) setTab('hermes') }, children: [jsx('i', { className: 'knob' }), label] }, name)
-          })] })]) }) : null,
+      type: 'button', role: 'tab', 'aria-selected': current === t, className: current === t ? 'tab on' : 'tab', onClick: () => openTab(t),
+      title: sourceOn(t) ? `${label} inbox` : `Click to read ${label} sessions that are waiting on you`,
+      children: [label, sourceOn(t) ? jsx('span', { children: tabCount(t) }) : jsx('span', { className: 'dim', children: '…' })] }, t)) }) : null,
     d ? jsx('div', { className: 'tally', children: LANES.map((l) => {
       const n = items.filter((i) => i.priority === l.key).length
       return jsx('span', { className: `${n ? 'on' : ''}${folded[l.key] ? ' off' : ''}`, style: { '--t': l.color }, title: folded[l.key] ? 'Show this section' : 'Fold this section', onClick: () => fold(l.key), children: `${n} ${l.label.toLowerCase()}` }, l.key)
@@ -305,15 +301,8 @@ function InboxPage() {
     jsx('div', { className: 'scroll', children: !d
       ? (s.error ? jsx('div', { style: { color: C.red, fontSize: 12.5 }, children: `Could not read the inbox: ${s.error}. Is the hermes-agent-inbox plugin switched on (Settings → Plugins)?` }) : null)
       : [
-        items.length ? null : jsx('div', { className: 'zero', children: 'Inbox zero. No Bot is waiting on you.' }, 'zero'),
-        ...(current === 'all'
-          // All: one block per agent, so each inbox stays its own thing even side by side.
-          ? tabs.filter(([t]) => t !== 'all' && tabCount(t) > 0).map(([t, label]) => jsxs('section', { className: 'app-group', key: t, children: [
-            jsxs('button', { type: 'button', className: 'app-title', onClick: () => setTab(t), title: `Open the ${label} inbox`, children: [
-              jsx('i', { className: `codicon codicon-${APP_ICON[t] || 'inbox'}` }), jsx('b', { children: `${label} inbox` }), jsx('span', { children: tabCount(t) }), jsx('i', { className: 'codicon codicon-arrow-right go-arrow' })] }),
-            ...LANES.map((lane) => jsx(Lane, { lane, items: all.filter((i) => appOf(i) === t && i.priority === lane.key), folded: Boolean(folded[lane.key]), onFold: () => fold(lane.key), openId, setOpenId }, lane.key)),
-          ] }))
-          : LANES.map((lane) => jsx(Lane, { lane, items: items.filter((i) => i.priority === lane.key), folded: Boolean(folded[lane.key]), onFold: () => fold(lane.key), openId, setOpenId }, lane.key))),
+        items.length ? null : jsx('div', { className: 'zero', children: !sourceOn(current) ? 'Reading…' : current === 'hermes' ? 'Inbox zero. No Bot is waiting on you.' : `Nothing from ${(TABS.find(([t]) => t === current) || [])[1]} is waiting on you.` }, 'zero'),
+        ...LANES.map((lane) => jsx(Lane, { lane, items: items.filter((i) => i.priority === lane.key), folded: Boolean(folded[lane.key]), onFold: () => fold(lane.key), openId, setOpenId }, lane.key)),
         errs.length ? jsx('div', { className: 'warn', children: `Couldn't read: ${errs.map(([k, v]) => `${k} (${v})`).join(' · ')}` }, 'errs') : null,
         jsx('div', { className: 'note', children: 'Chats show only the title and how they ended, never the messages. Done hides a card until it changes; Snooze hides it for a day.' }, 'note'),
       ] }),
@@ -323,7 +312,7 @@ function InboxPage() {
 function StatusChip() {
   const s = useInbox()
   if (!s.data) return null
-  const items = shown(s)
+  const items = shown(s).filter((i) => appOf(i) === 'hermes')  // the chip is Hermes only; other agents show only on their tab
   const now = items.filter((i) => i.priority === 'now').length
   const today = items.filter((i) => i.priority === 'today').length
   return jsx('button', {
