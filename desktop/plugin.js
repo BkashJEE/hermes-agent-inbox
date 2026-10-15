@@ -16,14 +16,13 @@ const REFRESH_MS = 5 * 60000
 const CLI_TIMEOUT_MS = 150000
 
 // ── data ────────────────────────────────────────────────────────────────────
+// The Inbox reads THIS machine's Bots, so it always talks to the local gateway — never the one that
+// owns the focused chat (a remote connection may not have this plugin installed at all).
 async function resolveRoute() {
-  const owner = host.state?.focusedSessionOwner?.get?.() || null
   const routes = await host.profileRoutes()
-  const exact = owner ? routes.filter((r) => r.connectionId === owner.connectionId && r.profile === owner.profile) : []
-  if (exact.length === 1) return exact[0]
-  const fallback = routes.find((r) => r.primary) || routes.find((r) => r.mode === 'local') || routes[0]
-  if (!fallback) throw new Error('No Hermes profile route available')
-  return fallback
+  const route = routes.find((r) => r.mode === 'local' && r.primary) || routes.find((r) => r.mode === 'local') || routes.find((r) => r.primary) || routes[0]
+  if (!route) throw new Error('No Hermes profile route available')
+  return route
 }
 
 function parseCliJson(output) {
@@ -35,10 +34,13 @@ function parseCliJson(output) {
   throw new Error(lines.slice(-2).join(' ') || 'empty output from hermes inbox')
 }
 
+// A call that never settles (gateway restarted mid-request) must not leave `inflight` set forever.
+const withDeadline = (promise, ms) => Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timed out waiting for hermes inbox')), ms))])
+
 async function runInbox(args) {
   const route = await resolveRoute()
-  const res = await host.requestProfile(route, 'cli.exec',
-    { argv: ['--profile', route.targetProfile, 'inbox', ...args], timeout: CLI_TIMEOUT_MS / 1000 }, CLI_TIMEOUT_MS + 5000)
+  const res = await withDeadline(host.requestProfile(route, 'cli.exec',
+    { argv: ['--profile', route.targetProfile, 'inbox', ...args], timeout: CLI_TIMEOUT_MS / 1000 }, CLI_TIMEOUT_MS + 5000), CLI_TIMEOUT_MS + 10000)
   if (res && res.blocked) throw new Error(res.hint || 'cli.exec blocked')
   const payload = parseCliJson(res && res.output)
   if (payload.error) throw new Error(payload.error)

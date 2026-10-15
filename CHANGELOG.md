@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1 — 2026-10-15
+
+- **Always talk to the local gateway.** The page used to send `hermes inbox` to whichever gateway owned the focused chat; with a remote connection focused (a laptop), that machine answered "'inbox' is not a hermes command". The Inbox is about this machine, so it now always uses the local route.
+- A request that never settles (gateway restarted mid-call) no longer blocks every later refresh.
+
 ## 0.3.0 — 2026-10-15
 
 - **One inbox per agent.** The Hermes tab is Hermes work only: PRs are included only from Hermes repos (`hermes_repos`, default `["hermes"]`). Other PRs are left out.
