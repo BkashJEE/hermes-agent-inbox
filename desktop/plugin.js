@@ -110,90 +110,128 @@ function ago(ts) {
 }
 
 // ── pieces ──────────────────────────────────────────────────────────────────
-const btn = (extra) => ({ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: `1px solid ${C.stroke}`, background: 'transparent', color: C.t2, cursor: 'pointer', whiteSpace: 'nowrap', ...extra })
+// Card look follows the Skills Library page: fixed header, its own scroll area, a grid of flash cards.
+const CSS = `
+.hin{height:100%;display:flex;flex-direction:column;overflow:hidden;min-height:0;container-type:inline-size;color:var(--ui-text-primary,#eeedf2);background:var(--background,#141419);font:14px/1.55 system-ui,sans-serif;box-sizing:border-box}
+.hin *{box-sizing:border-box}
+.hin .head{flex-shrink:0;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:24px clamp(20px,3vw,40px) 14px;border-bottom:1px solid var(--ui-stroke-tertiary,#34343b)}
+.hin h1{font-size:22px;letter-spacing:-.5px;font-weight:600;margin:0}
+.hin .sub{font-size:12px;color:var(--ui-text-tertiary,#a6a4b0)}
+.hin .meta{margin-left:auto;font:11px ${MONO};color:var(--ui-text-tertiary,#a6a4b0)}
+.hin .tally{display:flex;gap:8px;width:100%}
+.hin .tally span{font:600 11px ${MONO};letter-spacing:.06em;padding:3px 9px;border-radius:999px;border:1px solid var(--ui-stroke-tertiary,#34343b);color:var(--ui-text-quaternary,#6e7681)}
+.hin .tally .on{color:var(--t);border-color:color-mix(in srgb,var(--t) 55%,transparent);background:color-mix(in srgb,var(--t) 10%,transparent)}
+.hin .scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-gutter:stable;padding:18px clamp(20px,3vw,40px) 32px}
+.hin .scroll::-webkit-scrollbar{width:8px}.hin .scroll::-webkit-scrollbar-track{background:transparent}
+.hin .scroll::-webkit-scrollbar-thumb{background:var(--ui-stroke-tertiary,#34343b);border-radius:8px}
+.hin .lane{margin:6px 0 22px}
+.hin .lane-title{display:flex;align-items:baseline;gap:10px;margin:0 0 10px}
+.hin .lane-title b{font:700 12px ${MONO};letter-spacing:.08em}
+.hin .lane-title span{font-size:11.5px;color:var(--ui-text-quaternary,#6e7681)}
+.hin .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr));gap:14px}
+@container (min-width:1300px){.hin .grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.hin .card{position:relative;display:flex;flex-direction:column;min-width:0;height:184px;padding:12px 14px;border-radius:10px;border:1px solid var(--ui-stroke-quaternary,#2c2b34);border-top:3px solid color-mix(in srgb,var(--a) 65%,var(--card,#1c1c23));background:linear-gradient(155deg,color-mix(in srgb,var(--a) 8%,var(--card,#1c1c23)),var(--card,#1c1c23) 75%);box-shadow:0 3px 10px #0000000a;transition:border-color .15s,transform .15s}
+.hin .card:hover{border-color:var(--ui-stroke-primary,#64616f);transform:translateY(-1px)}
+.hin .card-head{display:flex;gap:10px;align-items:flex-start;min-width:0}
+.hin .icon{display:grid;place-items:center;flex-shrink:0;width:30px;height:30px;border-radius:7px;color:var(--a);background:color-mix(in srgb,var(--a) 13%,transparent);font-size:17px}
+.hin .name{font-size:14.5px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.hin .src{font-size:10.5px;color:var(--ui-text-tertiary,#a6a4b0);margin-top:4px}
+.hin .label{font-size:11px;font-weight:600;color:var(--ui-text-secondary,#b8b6c2);margin:10px 0 2px}
+.hin .brief{margin:0;padding:0;list-style:none;font-size:12px;line-height:1.45;color:var(--ui-text-secondary,#b8b6c2)}
+.hin .brief li{position:relative;padding-left:11px}
+.hin .brief li:before{content:"•";position:absolute;left:0;color:var(--a)}
+.hin .brief li span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.hin .foot{display:flex;align-items:center;gap:4px;margin-top:auto}
+.hin .foot button,.hin .foot a{font:12px system-ui,sans-serif;border:0;background:transparent;color:var(--ui-text-tertiary,#a6a4b0);padding:4px 6px;border-radius:6px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.hin .foot button:hover,.hin .foot a:hover{background:var(--chrome-action-hover,#303038);color:var(--ui-text-primary,#eeedf2)}
+.hin .foot .go{margin-left:auto;color:var(--ui-text-primary,#eeedf2);font-weight:500}
+.hin .head button{font-size:12px;padding:5px 12px;border-radius:7px;border:1px solid var(--ui-stroke-tertiary,#34343b);background:var(--ui-bg-quaternary,#24242b);color:inherit;cursor:pointer}
+.hin .head button:disabled{opacity:.5;cursor:default}
+.hin .empty{grid-column:1/-1;font-size:12px;color:var(--ui-text-quaternary,#6e7681);padding:4px 0 8px}
+.hin .zero{margin-bottom:18px;padding:12px 16px;border-radius:10px;font-weight:600;color:var(--ui-green,#3fb950);border:1px solid color-mix(in srgb,var(--ui-green,#3fb950) 45%,transparent)}
+.hin .note{font-size:11px;color:var(--ui-text-quaternary,#6e7681);line-height:1.6}
+.hin .warn{font-size:11.5px;color:var(--ui-orange,#ffa657);margin-bottom:10px}
+`
+const ICON = { keys: 'key', vitals: 'pulse', sessions: 'comment-discussion', crons: 'clock', prs: 'git-pull-request', review: 'eye' }
+const KIND = { keys: 'Key Doctor', vitals: 'Vitals', sessions: 'Bot chat', crons: 'Cron job', prs: 'Pull request', review: 'X Studio' }
+const NEEDS = { now: 'What it needs', today: 'What it needs', later: 'When you can' }
 
-function Primary({ a }) {
+function Go({ a }) {
   const [copied, setCopied] = useState(false)
+  const label = `${a.label} →`
   if (a.kind === 'session') {
-    return jsx('button', { type: 'button', style: btn({ color: C.accent, borderColor: C.accent }),
+    return jsx('button', { type: 'button', className: 'go',
       onClick: () => host.openSession(a.session, { profile: a.profile, intent: 'tab' })
         .catch((e) => host.notify?.({ kind: 'error', message: String((e && e.message) || e) })),
-      children: a.label })
+      children: label })
   }
-  if (a.kind === 'url') {
-    return jsx('a', { href: a.value, target: '_blank', rel: 'noreferrer', style: btn({ color: C.accent, borderColor: C.accent, textDecoration: 'none' }), children: a.label })
-  }
-  if (a.kind === 'open' || /^\/[a-z-]+$/.test(a.value)) {
-    return jsx('button', { type: 'button', style: btn({ color: C.accent, borderColor: C.accent }), onClick: () => host.navigate(a.value), children: a.label })
-  }
-  return jsx('button', { type: 'button', style: btn({ color: copied ? C.green : C.accent, borderColor: C.accent }), title: a.value,
+  if (a.kind === 'url') return jsx('a', { className: 'go', href: a.value, target: '_blank', rel: 'noreferrer', children: label })
+  if (a.kind === 'open' || /^\/[a-z-]+$/.test(a.value)) return jsx('button', { type: 'button', className: 'go', onClick: () => host.navigate(a.value), children: label })
+  return jsx('button', { type: 'button', className: 'go', title: a.value,
     onClick: () => navigator.clipboard?.writeText(a.value).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }),
-    children: copied ? 'Copied' : `Copy: ${a.label}` })
+    children: copied ? 'Copied ✓' : `Copy ${a.label.toLowerCase()} →` })
 }
 
-function Row({ it, color }) {
+function Card({ it, color }) {
   return jsxs('div', {
-    style: { display: 'grid', gridTemplateColumns: '64px 1fr auto', gap: 12, alignItems: 'center', padding: '9px 0', borderTop: `1px solid ${C.stroke}` },
+    className: 'card', style: { '--a': color },
     children: [
-      jsx('span', { style: { fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '.08em', color, border: `1px solid ${color}`, borderRadius: 4, padding: '2px 0', textAlign: 'center' }, children: SOURCE[it.source] || it.source.toUpperCase() }),
-      jsxs('div', { style: { minWidth: 0 }, children: [
-        jsxs('div', { style: { fontSize: 12.5, color: C.t1, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: [
-          it.title, jsx('span', { style: { fontFamily: MONO, fontSize: 10.5, fontWeight: 400, color: C.t4, marginLeft: 8 }, children: ago(it.at) })] }),
-        jsx('div', { style: { fontSize: 11.5, color: C.t3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: it.detail }),
+      jsxs('div', { className: 'card-head', children: [
+        jsx('span', { className: 'icon', children: jsx('i', { className: `codicon codicon-${ICON[it.source] || 'circle'}` }) }),
+        jsxs('div', { style: { minWidth: 0, flex: 1 }, children: [
+          jsx('div', { className: 'name', title: it.title, children: it.title }),
+          jsx('div', { className: 'src', children: `${KIND[it.source] || it.source}${it.at ? ` · ${ago(it.at)} ago` : ''}` }),
+        ] }),
       ] }),
-      jsxs('div', { style: { display: 'flex', gap: 6 }, children: [
-        jsx(Primary, { a: it.action }),
-        jsx('button', { type: 'button', style: btn(), title: 'Hide for a day', onClick: () => clear(it, 'snooze', 24), children: 'Snooze 1d' }),
-        jsx('button', { type: 'button', style: btn(), title: 'Hide until it changes', onClick: () => clear(it, 'done'), children: 'Done' }),
+      jsx('div', { className: 'label', children: NEEDS[it.priority] }),
+      jsx('ul', { className: 'brief', children: jsx('li', { children: jsx('span', { title: it.detail, children: it.detail || it.action.label }) }) }),
+      jsxs('div', { className: 'foot', children: [
+        jsx('button', { type: 'button', title: 'Hide until it changes', onClick: () => clear(it, 'done'), children: 'Done' }),
+        jsx('button', { type: 'button', title: 'Hide for a day', onClick: () => clear(it, 'snooze', 24), children: 'Snooze 1d' }),
+        jsx(Go, { a: it.action }),
       ] }),
     ],
   })
 }
 
 function Lane({ lane, items }) {
-  return jsxs('div', {
-    style: { background: C.panel, border: `1px solid ${items.length && lane.key === 'now' ? C.red : C.stroke}`, borderRadius: 10, padding: '10px 14px', marginBottom: 12 },
-    children: [
-      jsxs('div', { style: { display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 2 }, children: [
-        jsx('span', { style: { fontFamily: MONO, fontSize: 13, fontWeight: 700, color: items.length ? lane.color : C.t4, letterSpacing: '.05em' }, children: `${lane.label.toUpperCase()} · ${items.length}` }),
-        jsx('span', { style: { fontSize: 11, color: C.t4 }, children: lane.hint }),
-      ] }),
-      items.length ? items.map((it) => jsx(Row, { it, color: lane.color }, it.id))
-        : jsx('div', { style: { fontSize: 11.5, color: C.t4, padding: '6px 0' }, children: 'Nothing here.' }),
-    ],
-  })
+  return jsxs('section', { className: 'lane', children: [
+    jsxs('div', { className: 'lane-title', children: [
+      jsx('b', { style: { color: items.length ? lane.color : C.t4 }, children: `${lane.label.toUpperCase()} · ${items.length}` }),
+      jsx('span', { children: lane.hint }),
+    ] }),
+    jsx('div', { className: 'grid', children: items.length ? items.map((it) => jsx(Card, { it, color: lane.color }, it.id))
+      : jsx('div', { className: 'empty', children: 'Nothing here.' }) }),
+  ] })
 }
 
 function InboxPage() {
   const s = useInbox()
   const d = s.data
   const items = shown(s)
-  const head = jsxs('div', {
-    style: { display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 12 },
-    children: [
-      jsx('div', { style: { fontSize: 13, color: C.t1, fontWeight: 600 }, children: 'Inbox' }),
-      jsx('div', { style: { fontSize: 11.5, color: C.t3 }, children: 'everything your Bots and tools are waiting on you for' }),
-      jsx('div', { style: { marginLeft: 'auto', fontFamily: MONO, fontSize: 11, color: C.t3 },
-        children: d ? `${d.hidden ? `${d.hidden} done/snoozed · ` : ''}checked ${new Date(s.at).toLocaleTimeString()}` : s.error ? '' : 'checking Bots, crons, keys, PRs…' }),
-      jsx('button', { type: 'button', onClick: () => refresh(), disabled: Boolean(s.inflight), style: btn(), children: s.inflight ? 'Checking…' : 'Check now' }),
-    ],
-  })
-  if (!d) {
-    return jsxs('div', { style: { padding: '20px 28px', height: '100%', overflow: 'auto' }, children: [head,
-      s.error ? jsx('div', { style: { color: C.red, fontSize: 12.5 }, children: `Could not read the inbox: ${s.error}. Is the hermes-inbox Python plugin enabled (hermes plugins enable hermes-inbox)?` }) : null] })
-  }
-  const errs = Object.entries(d.errors || {})
-  return jsxs('div', {
-    style: { padding: '20px 28px 28px', height: '100%', overflow: 'auto', maxWidth: 1100 },
-    children: [
-      head,
-      items.length ? null : jsx('div', { style: { marginBottom: 12, padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, color: C.green, border: `1px solid ${C.green}` }, children: 'Inbox zero. No Bot is waiting on you.' }),
-      ...LANES.map((lane) => jsx(Lane, { lane, items: items.filter((i) => i.priority === lane.key) }, lane.key)),
-      errs.length ? jsx('div', { style: { fontSize: 11, color: C.orange, marginTop: 4 }, children: `Couldn't read: ${errs.map(([k, v]) => `${k} (${v})`).join(' · ')}` }) : null,
-      jsx('div', { style: { marginTop: 10, fontSize: 11, color: C.t4, lineHeight: 1.6 },
-        children: 'Chats show only the title and how they ended, never the messages. Done hides an item until it changes; Snooze hides it for a day.' }),
-    ],
-  })
+  const head = jsxs('div', { className: 'head', children: [
+    jsx('h1', { children: 'Inbox' }),
+    jsx('span', { className: 'sub', children: 'everything your Bots and tools are waiting on you for' }),
+    jsx('span', { className: 'meta', children: d ? `${d.hidden ? `${d.hidden} done/snoozed · ` : ''}checked ${new Date(s.at).toLocaleTimeString()}` : s.error ? '' : 'checking Bots, crons, keys, PRs…' }),
+    jsx('button', { type: 'button', onClick: () => refresh(), disabled: Boolean(s.inflight), children: s.inflight ? 'Checking…' : 'Check now' }),
+    d ? jsx('div', { className: 'tally', children: LANES.map((l) => {
+      const n = items.filter((i) => i.priority === l.key).length
+      return jsx('span', { className: n ? 'on' : '', style: { '--t': l.color }, children: `${n} ${l.label.toLowerCase()}` }, l.key)
+    }) }) : null,
+  ] })
+  const errs = d ? Object.entries(d.errors || {}) : []
+  return jsxs('div', { className: 'hin', children: [
+    jsx('style', { children: CSS }),
+    head,
+    jsx('div', { className: 'scroll', children: !d
+      ? (s.error ? jsx('div', { style: { color: C.red, fontSize: 12.5 }, children: `Could not read the inbox: ${s.error}. Is the hermes-inbox plugin switched on (Settings → Plugins)?` }) : null)
+      : [
+        items.length ? null : jsx('div', { className: 'zero', children: 'Inbox zero. No Bot is waiting on you.' }, 'zero'),
+        ...LANES.map((lane) => jsx(Lane, { lane, items: items.filter((i) => i.priority === lane.key) }, lane.key)),
+        errs.length ? jsx('div', { className: 'warn', children: `Couldn't read: ${errs.map(([k, v]) => `${k} (${v})`).join(' · ')}` }, 'errs') : null,
+        jsx('div', { className: 'note', children: 'Chats show only the title and how they ended, never the messages. Done hides a card until it changes; Snooze hides it for a day.' }, 'note'),
+      ] }),
+  ] })
 }
 
 function StatusChip() {
