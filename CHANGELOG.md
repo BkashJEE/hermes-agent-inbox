@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.0 — 2026-10-17
+- **Backend ships with the plugin.** `dashboard/plugin_api.py` gives the Desktop page its own REST namespace (`/list`, `/stamp`, `/done`, `/snooze`, `/set`, `/run-cron`). The page uses it first and falls back to `hermes inbox --json` only when it isn't mounted. Nothing has to be written by hand.
+- **No more trimmed lists.** Over REST there's no 48,000-character output cap, so a busy inbox shows every card (the CLI fallback still trims, and says so).
+- **Fresh within 30 seconds.** The page checks a cheap change stamp (file times only) every 30 s and re-reads only when something changed. The 5-minute refresh stays as a safety net.
+- **Desktop notifications for new "Now" cards**: one per card, at most three at a time, never on the first visit, never twice for the same card. Click opens the Inbox.
+- **New buttons on an open card:**
+  - **✦ Hand to a Bot** drafts the card as a job in Hermes chat, with its facts and suggested next step. Never sent.
+  - **↻ Run again** on a failed cron (`hermes -p <bot> cron run <id>`), only for jobs the Inbox currently shows as failing.
+  - **Open Key Doctor** on login cards.
+- `hermes inbox stamp` and `hermes inbox run-cron PROFILE ID` on the CLI.
+- Windows: finds Hermes's Python at `venv\Scripts\python.exe` too.
+- Clearer error text on the page, with the enable command.
+
 ## 0.5.2 — 2026-10-15
 
 - Hermes Bot chats use the same 7-day window as Claude and Codex (`agent_hours`); offers ("say yes and I'll…") count for Bots too.

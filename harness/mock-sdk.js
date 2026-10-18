@@ -2,9 +2,25 @@
 // live.json (default) is `hermes inbox --json` saved on this machine (gitignored: it holds real titles).
 // ?data=demo loads demo.json: made-up Bots and repos, used for the README screenshots.
 const params = new URLSearchParams(location.search)
-const payload = await fetch(params.get('data') === 'demo' ? './demo.json' : './live.json').then((r) => r.json())
+const payload = await fetch(params.get('data') === 'demo' ? './demo.json' : './live.json', { cache: 'no-store' }).then((r) => r.json())
 const nowS = Date.now() / 1000
 for (const it of payload.items || []) if ('ago' in it) it.at = it.ago ? nowS - it.ago : 0
+// ctx.rest twin of the backend (dashboard/plugin_api.py). ?via=cli makes it fail like a profile where
+// the backend isn't mounted, so the page's CLI fallback runs instead.
+export async function restCall(path, opts = {}) {
+  window.__rest = (window.__rest || []).concat([path])
+  if (params.get('via') === 'cli') throw new Error('404: {"detail":"Not Found"}')
+  const [route, query] = path.split('?')
+  if (route === '/stamp') return { stamp: window.__stamp || 1 }
+  if (route === '/done' || route === '/snooze') return { ok: true }
+  if (route === '/set') { payload.switches = { ...(payload.switches || {}), [opts.body.source]: opts.body.on }; return { ok: true } }
+  if (route === '/run-cron') { window.__ranCron = opts.body; return { ok: true, said: 'Queued' } }
+  if (route === '/list') {
+    const apps = new URLSearchParams(query || '').getAll('app')
+    return { ...payload, items: (payload.items || []).filter((i) => (!apps.length || apps.includes(i.app)) && (!['claude', 'codex'].includes(i.app) || (payload.switches || {})[i.app])) }
+  }
+  throw new Error('404: no route ' + route)
+}
 export const ROUTES_AREA = 'routes', SIDEBAR_NAV_AREA = 'sidebar.nav', PALETTE_AREA = 'palette', STATUSBAR_AREAS = { left: 'statusBar.left', right: 'statusBar.right' }
 export const host = {
   state: { focusedSessionOwner: { get: () => null } },

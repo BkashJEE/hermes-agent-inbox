@@ -1,9 +1,12 @@
 // hermes-agent-inbox: desktop half. Plain ESM, loaded uncompiled by Hermes Desktop (no JSX, no build).
 //
 // Surfaces: route /inbox (sidebar row "Inbox" + ⌘K "Open Inbox") and a status-bar chip.
-// Data: host.requestProfile(route, "cli.exec", { argv: ["--profile", p, "inbox", "--json"] })
-//       -> a fresh `hermes inbox` process; refreshed every 5 min while visible (PRs are cached 10 min).
-// Done / Snooze run `hermes inbox done|snooze ID` and only touch the inbox's own state file.
+// Data: the plugin's own backend first, ctx.rest('/list') -> dashboard/plugin_api.py (mounted by Hermes
+//       when the plugin is in plugins.enabled; no output cap). If it isn't mounted, the CLI:
+//       host.requestProfile(route, "cli.exec", { argv: ["--profile", p, "inbox", "--json"] }).
+// Fresh: with the backend, a cheap /stamp every 30 s re-reads only when something changed; the 5-min
+//       full refresh stays as a safety net. New "Now" cards raise one desktop notification each.
+// Done / Snooze only touch the inbox's own state file.
 // Look: theme variables only (--ui-*), so it follows Nous dark and every other skin.
 
 import { host, PALETTE_AREA, ROUTES_AREA, SIDEBAR_NAV_AREA, STATUSBAR_AREAS } from '@hermes/plugin-sdk'
@@ -46,11 +49,49 @@ async function runHermes(argv) {
   return { route, output: String((res && res.output) || '') }
 }
 
-async function runInbox(args) {
+async function viaCli(args) {
   const { output } = await runHermes(['inbox', ...args])
   const payload = parseCliJson(output)
   if (payload.error) throw new Error(payload.error)
   return payload
+}
+
+// ── backend: REST (dashboard/plugin_api.py) first, the CLI as fallback ──────
+let pluginCtx = null           // set in register(); ctx.rest is this plugin's own REST namespace
+let backend = null             // 'rest' | 'cli', once one has answered
+const REST_TIMEOUT_MS = 150000
+const restAvailable = () => !!(pluginCtx && typeof pluginCtx.rest === 'function')
+function viaRest(args) {
+  const rest = (path, opts) => pluginCtx.rest(path, { timeoutMs: REST_TIMEOUT_MS, ...(opts || {}) })
+  const post = (path, body) => rest(path, { method: 'POST', body })
+  const [cmd, ...tail] = args
+  if (cmd === '--json') {  // ['--json', '--app', a, '--app', b]
+    const q = []
+    for (let i = 0; i < tail.length; i += 2) if (tail[i] === '--app' || tail[i] === '--source') q.push(`${tail[i].slice(2)}=${encodeURIComponent(tail[i + 1])}`)
+    return rest(`/list${q.length ? `?${q.join('&')}` : ''}`)
+  }
+  if (cmd === 'done') return post('/done', { id: tail[0] })
+  if (cmd === 'snooze') return post('/snooze', { id: tail[0], hours: Number(tail[1]) })
+  if (cmd === 'set') return post('/set', { source: tail[0], on: tail[1] === 'on' })
+  if (cmd === 'stamp') return rest('/stamp', { timeoutMs: 10000 })
+  if (cmd === 'run-cron') return post('/run-cron', { profile: tail[0], id: tail[1] })
+  throw new Error(`no REST route for ${cmd}`)
+}
+async function runInbox(args) {
+  if (backend !== 'cli' && restAvailable()) {
+    try {
+      const r = await viaRest(args)
+      backend = 'rest'
+      if (r && r.error) throw new Error(r.error)
+      return r
+    } catch (e) {
+      if (backend === 'rest') throw e   // the backend answered before, so this is a real failure
+      console.error(`[hermes-agent-inbox] backend REST unavailable (${String((e && e.message) || e)}); using the CLI`)
+    }
+  }
+  const r = await viaCli(args)
+  backend = 'cli'
+  return r
 }
 
 // Continue a Claude Code / Codex session as a Hermes chat: `hermes sessions import` copies it into the
@@ -90,7 +131,37 @@ function refreshGroup(g) {
   return store.inflight[g]
 }
 function refresh() {
-  return Promise.all(['base', ...[...store.loaded].filter((g) => g !== 'base')].map(refreshGroup))
+  return Promise.all(['base', ...[...store.loaded].filter((g) => g !== 'base')].map(refreshGroup)).then(announce)
+}
+
+// One desktop notification per NEW "Now" card in the Hermes tab. The first read only records what is
+// already there, so opening Desktop never fires a burst. Seen ids are remembered per viewer.
+const SEEN_KEY = 'hermes-inbox.seen-now.v1'
+let seenNow = null
+function loadSeen() { try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || '[]')) } catch { return new Set() } }
+function saveSeen(set) { try { localStorage.setItem(SEEN_KEY, JSON.stringify([...set].slice(-300))) } catch { /* fine */ } }
+function announce() {
+  if (!store.apps.base) return
+  const nowItems = shown(store).filter((i) => appOf(i) === 'hermes' && i.priority === 'now')
+  const first = seenNow === null
+  if (first) seenNow = loadSeen()
+  const fresh = nowItems.filter((i) => !seenNow.has(i.id))
+  fresh.forEach((i) => seenNow.add(i.id))
+  saveSeen(seenNow)
+  if (first && seenNow.size === fresh.length) return   // a brand-new viewer: record, don't notify
+  if (!os || typeof os.notify !== 'function') return
+  fresh.slice(0, 3).forEach((i) => os.notify({ title: `Inbox · ${i.title}`, body: i.detail || i.why || '', activate: ROUTE }))
+}
+
+// Cheap change check: the backend reports the newest mtime of what the inbox reads; re-read on change.
+let lastStamp = null
+async function checkStamp() {
+  if (backend !== 'rest' || document.hidden || busy(store)) return
+  try {
+    const { stamp } = await runInbox(['stamp'])
+    if (lastStamp !== null && stamp !== lastStamp) refresh()
+    lastStamp = stamp
+  } catch { /* the 5-min refresh still runs */ }
 }
 const busy = (s) => Object.keys(s.inflight).length > 0
 // Done / snooze hide the row at once; the next refresh confirms it from the state file.
@@ -116,6 +187,7 @@ function useInbox() {
 function startPolling(ctx) {
   const tick = () => { if (!document.hidden) refresh() }
   ctx.setInterval(tick, REFRESH_MS)
+  ctx.setInterval(checkStamp, 30000)
   ctx.addEventListener(document, 'visibilitychange', tick)
   refresh()
 }
@@ -248,9 +320,39 @@ function ImportBtn({ m }) {
 function CopyBtn({ m }) {
   const [done, setDone] = useState(false)
   if (m.kind === 'hermes-import') return null  // shown in the card foot instead
+  if (m.kind === 'open') return jsx('button', { type: 'button', onClick: () => host.navigate(m.value), children: `${m.label} →` })
   return jsx('button', { type: 'button', title: m.value,
     onClick: () => navigator.clipboard?.writeText(m.value).then(() => { setDone(true); setTimeout(() => setDone(false), 1500) }),
     children: done ? 'Copied ✓' : m.label })
+}
+
+// ✦ Hand to a Bot: drafts the card as a job in Hermes chat (never sent), with what the inbox knows.
+const COMPOSER_INSERT = 'hermes:composer-insert'
+const COMPOSER_FOCUS = 'hermes:composer-focus'
+function handToBot(it) {
+  const facts = agentFacts(it).filter(([, v]) => v).map(([k, v]) => `- ${k}: ${v}`)
+  const act = it.action && it.action.value ? `\nSuggested next step: ${it.action.label}: ${it.action.value}` : ''
+  const text = `My Inbox says: ${it.title}${it.detail ? ` (${it.detail})` : ''}.` + (it.why ? `\nWhy: ${it.why}` : '') +
+    (facts.length ? `\n${facts.join('\n')}` : '') + act +
+    '\n\nLook into this and tell me what is wrong and what you would do. Do not change, run or send anything until I say go.'
+  host.navigate('/')
+  window.setTimeout(() => {
+    window.dispatchEvent(new CustomEvent(COMPOSER_INSERT, { detail: { mode: 'block', target: 'main', text } }))
+    window.dispatchEvent(new CustomEvent(COMPOSER_FOCUS, { detail: { target: 'main' } }))
+  }, 250)
+}
+
+function RunAgain({ it }) {
+  const [state, setState] = useState('idle')
+  if (!it.cron) return null
+  return jsx('button', { type: 'button', disabled: state === 'busy' || state === 'done', title: `hermes -p ${it.cron.profile} cron run ${it.cron.id}`,
+    onClick: () => {
+      setState('busy')
+      runInbox(['run-cron', it.cron.profile, it.cron.id])
+        .then((r) => { if (r && r.ok) setState('done'); else { setState('idle'); host.notify?.({ kind: 'error', message: `Run again: ${(r && r.why) || 'failed'}` }) } })
+        .catch((e) => { setState('idle'); host.notify?.({ kind: 'error', message: `Run again: ${String((e && e.message) || e)}` }) })
+    },
+    children: state === 'busy' ? 'Starting…' : state === 'done' ? 'Runs on next tick ✓' : '↻ Run again' })
 }
 
 function Card({ it, color, open, onToggle }) {
@@ -272,7 +374,11 @@ function Card({ it, color, open, onToggle }) {
       open && it.why ? jsx('div', { className: 'why', children: it.why }) : null,
       open && agentFacts(it).length ? jsx('dl', { className: 'facts', children: agentFacts(it).filter(([, v]) => v).flatMap(([k, v]) => [jsx('dt', { children: k }, `${k}-k`), jsx('dd', { title: v, children: v }, `${k}-v`)]) }) : null,
       open && it.action.kind === 'command' ? jsx('code', { className: 'cmd', onClick: stop, children: it.action.value }) : null,
-      open && (it.more || []).length ? jsx('div', { className: 'more', onClick: stop, children: it.more.map((m) => jsx(CopyBtn, { m }, m.label)) }) : null,
+      open ? jsx('div', { className: 'more', onClick: stop, children: [
+        ...(it.more || []).map((m) => jsx(CopyBtn, { m }, m.label)),
+        jsx(RunAgain, { it }, 'run'),
+        jsx('button', { type: 'button', title: 'Draft this as a job for a Bot in chat (not sent)', onClick: () => handToBot(it), children: '✦ Hand to a Bot' }, 'bot'),
+      ] }) : null,
       jsxs('div', { className: 'foot', onClick: stop, children: [
         jsx('button', { type: 'button', className: 'done', title: 'Hide until it changes', onClick: () => clear(it, 'done'), children: '✓ Done' }),
         jsx('button', { type: 'button', className: 'snooze', title: 'Hide for a day', onClick: () => clear(it, 'snooze', 24), children: '◷ Snooze' }),
@@ -341,7 +447,8 @@ function InboxPage() {
     jsx('style', { children: CSS }),
     head,
     jsx('div', { className: 'scroll', children: !d
-      ? (s.error ? jsx('div', { style: { color: C.red, fontSize: 12.5 }, children: `Could not read the inbox: ${String(s.error).slice(0, 300)}. Is the hermes-agent-inbox plugin switched on (Settings → Plugins)?` }) : null)
+      ? (s.error ? jsxs('div', { style: { color: C.red, fontSize: 12.5 }, children: [`Could not read the inbox: ${String(s.error).slice(0, 300)}`,
+        jsx('div', { style: { color: C.t3, fontSize: 12, marginTop: 8, fontFamily: MONO }, children: 'Fix: hermes plugins enable hermes-agent-inbox, then restart Hermes Desktop (Capabilities → Plugins → Rescan).' })] }) : null)
       : [
         items.length ? null : jsx('div', { className: 'zero', children: !loaded(current) || s.inflight[current] ? 'Reading…' : current === 'hermes' ? 'Inbox zero. No Bot is waiting on you.' : `Nothing from ${(TABS.find(([t]) => t === current) || [])[1]} is waiting on you.` }, 'zero'),
         truncated ? jsx('div', { className: 'warn', children: `${truncated} more card${truncated === 1 ? '' : 's'} didn't fit on this page; \`hermes inbox\` in a terminal shows them all.` }, 'trunc') : null,
@@ -370,6 +477,7 @@ export default {
   name: 'Inbox',
   register(ctx) {
     os = ctx.os || null
+    pluginCtx = ctx
     ctx.register({ id: 'page', area: ROUTES_AREA, data: { path: ROUTE }, render: () => jsx(InboxPage, {}) })
     ctx.register({ id: 'nav', area: SIDEBAR_NAV_AREA, order: 86, data: { path: ROUTE, label: 'Inbox', codicon: 'inbox' } })
     ctx.register({ id: 'open', area: PALETTE_AREA, data: { id: `${ID}.open`, label: 'Open Inbox', keywords: ['inbox', 'waiting', 'approval', 'stuck', 'todo', 'review'], run: () => host.navigate(ROUTE) } })

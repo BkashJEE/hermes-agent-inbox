@@ -26,6 +26,7 @@ import calendar
 import json
 import os
 import re
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -48,7 +49,9 @@ def hermes_root() -> Path:
 
 HERMES = hermes_root()
 STATE = Path(os.environ.get("XDG_STATE_HOME", HOME / ".local" / "state")) / "hermes-inbox" / "state.json"
-HERMES_PY = HERMES / "hermes-agent" / "venv" / "bin" / "python"
+HERMES_PY = next((p for p in (HERMES / "hermes-agent" / "venv" / "bin" / "python",
+                               HERMES / "hermes-agent" / "venv" / "Scripts" / "python.exe") if p.exists()),
+                 HERMES / "hermes-agent" / "venv" / "bin" / "python")  # Linux/macOS, then Windows
 FILED = HERMES / "inbox"          # cards that Bots, crons and scripts post with `hermes inbox add`
 CONFIG = HERMES / "inbox.json"    # optional settings, see README
 
@@ -266,6 +269,7 @@ def src_keys(now: float) -> list[dict]:
         if (dm.get("reach") or {}).get("verdict") == "blocked" and not dm.get("covered"):
             items.append({"id": f"keys:model:{r['profile']}", "source": "keys", "priority": "now", "agent": r["profile"],
                           "title": f"{r['profile']} can't reach its model", "detail": f"{dm.get('model')} via {dm.get('provider')}: no usable login",
+                          "more": [{"kind": "open", "label": "Open Key Doctor", "value": "/keys"}],
                           "at": 0, "action": {"kind": "command", "label": "Key Doctor", "value": f"hermes -p {r['profile']} keydoctor"}})
         for c in r.get("credentials", []):
             state = c.get("state") or c.get("status")
@@ -275,6 +279,7 @@ def src_keys(now: float) -> list[dict]:
             items.append({"agent": r["profile"] + (f" +{len(c.get('shared_with', []))}" if c.get("shared_with") else ""),
                           "id": f"keys:{c['provider']}:{c['id']}:{state}", "source": "keys", "priority": "now" if state in ("benched", "dead", "expired", "wrong-auth-mode") else "today",
                           "title": f"{c['provider']} login {state.replace('-', ' ')}", "detail": f"{r['profile']}" + (f" + {len(c.get('shared_with', []))} more Bots" if c.get("shared_with") else ""),
+                          "more": [{"kind": "open", "label": "Open Key Doctor", "value": "/keys"}],
                           "at": 0, "action": {"kind": "command", "label": "Copy fix", "value": (c.get("fix") or "").split("   #")[0] or f"hermes -p {r['profile']} keydoctor"}})
     return items
 
@@ -345,6 +350,7 @@ def src_crons(now: float) -> list[dict]:
                               "facts": [["Schedule", str(j.get("schedule") or j.get("cron") or "?")], ["Last run", when(stamp(j.get("last_run_at")))],
                                         ["Next run", when(stamp(j.get("next_run_at")))]],
                               "title": f"Cron failed: {j.get('name') or j.get('id')}", "detail": f"{profile}" + (f" · {str(j.get('last_error'))[:80]}" if j.get("last_error") else ""),
+                              "cron": {"profile": profile, "id": str(j.get("id"))},
                               "at": stamp(j.get("last_run_at")), "action": {"kind": "command", "label": "Runs", "value": f"hermes -p {profile} cron runs {j.get('id')}"}})
     return items
 
@@ -812,10 +818,64 @@ def render(data: dict) -> str:
     return "\n".join(lines)
 
 
+def mark_done(item_id: str) -> dict:
+    st = load_state()
+    if not remove_card(item_id):
+        st[item_id] = {"done": True, "at": time.time()}
+        save_state(st)
+    return {"ok": True}
+
+
+def snooze(item_id: str, hours: float) -> dict:
+    st = load_state()
+    st[item_id] = {"snooze_until": time.time() + float(hours) * 3600}
+    save_state(st)
+    return {"ok": True}
+
+
+def reset_state() -> dict:
+    save_state({})
+    return {"ok": True}
+
+
+def change_stamp() -> dict:
+    """A cheap "has anything changed?" signal for the Desktop page: the newest modification time of
+    the files the inbox reads (cron jobs, Bot session stores, posted cards, its own state). The page
+    polls this every 30 s and re-reads the inbox only when it moves. Reads metadata only."""
+    paths = [STATE, CONFIG, FILED]
+    for _profile, home in profiles():
+        paths += [home / "cron" / "jobs.json", home / "state.db", home / "state.db-wal"]
+    if FILED.is_dir():
+        paths += list(FILED.glob("*.json"))
+    newest = 0.0
+    for p in paths:
+        try:
+            newest = max(newest, p.stat().st_mtime)
+        except OSError:
+            continue
+    return {"stamp": newest}
+
+
+def run_cron(profile: str, job_id: str) -> dict:
+    """Run a failed cron job again (`hermes -p PROFILE cron run ID`: it runs on the next scheduler
+    tick). Only for a job the inbox currently shows as failed, so a page can't trigger any job."""
+    failed = {(i["cron"]["profile"], i["cron"]["id"]) for i in src_crons(time.time()) if i.get("cron")}
+    if (profile, str(job_id)) not in failed:
+        return {"ok": False, "why": "that job is not failing right now"}
+    exe = shutil.which("hermes") or "hermes"
+    try:
+        run = subprocess.run([exe, "-p", profile, "cron", "run", str(job_id)], capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError) as e:
+        return {"ok": False, "why": f"{type(e).__name__}: {e}"}
+    out = (run.stdout or run.stderr or "").strip().splitlines()
+    return {"ok": run.returncode == 0, "why": None if run.returncode == 0 else (out[-1] if out else f"exit {run.returncode}"),
+            "said": out[-1] if out else ""}
+
+
 def add_arguments(ap) -> None:
     """Shared by the standalone script and `hermes inbox`."""
-    ap.add_argument("action", nargs="?", default="list", choices=["list", "add", "done", "snooze", "reset", "set", "demo"])
-    ap.add_argument("target", nargs="*", help="add TITLE | done ID | snooze ID HOURS | set SOURCE on|off | demo on|off")
+    ap.add_argument("action", nargs="?", default="list", choices=["list", "add", "done", "snooze", "reset", "set", "demo", "stamp", "run-cron"])
+    ap.add_argument("target", nargs="*", help="add TITLE | done ID | snooze ID HOURS | set SOURCE on|off | demo on|off | run-cron PROFILE ID")
     ap.add_argument("--json", action="store_true", help="one-line JSON (the Desktop page reads this)")
     ap.add_argument("--source", action="append", help="only this source: " + ", ".join(SOURCES))
     ap.add_argument("--app", action="append", help="only this tab: " + ", ".join(APP_SOURCES))
@@ -849,19 +909,20 @@ def dispatch(a) -> str:
         if len(target) != 2 or target[0] not in SOURCES or target[1] not in ("on", "off"):
             raise ValueError("usage: hermes inbox set SOURCE on|off  (sources: " + ", ".join(SOURCES) + ")")
         return json.dumps(set_source(target[0], target[1] == "on"))
-    if action in ("done", "snooze", "reset"):
-        st = load_state()
-        if action == "done" and target:
-            if not remove_card(target[0]):
-                st[target[0]] = {"done": True, "at": time.time()}
-        elif action == "snooze" and len(target) >= 2:
-            st[target[0]] = {"snooze_until": time.time() + float(target[1]) * 3600}
-        elif action == "reset":
-            st = {}
-        else:
-            raise ValueError("usage: hermes inbox done ID | snooze ID HOURS | reset")
-        save_state(st)
-        return json.dumps({"ok": True})
+    if action == "stamp":
+        return json.dumps(change_stamp())
+    if action == "run-cron":
+        if len(target) != 2:
+            raise ValueError("usage: hermes inbox run-cron PROFILE JOB_ID")
+        return json.dumps(run_cron(target[0], target[1]))
+    if action == "done" and target:
+        return json.dumps(mark_done(target[0]))
+    if action == "snooze" and len(target) >= 2:
+        return json.dumps(snooze(target[0], float(target[1])))
+    if action == "reset":
+        return json.dumps(reset_state())
+    if action in ("done", "snooze"):
+        raise ValueError("usage: hermes inbox done ID | snooze ID HOURS | reset")
     data = collect(getattr(a, "source", None), getattr(a, "app", None))
     if getattr(a, "json", False):
         return json.dumps(fit_bytes(data, getattr(a, "max_bytes", MAX_BYTES)), separators=(",", ":"))

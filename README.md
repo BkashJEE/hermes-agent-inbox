@@ -129,7 +129,8 @@ Each source fails soft. If one can't be read, the others still show, with a one-
 ## Develop
 
 ```bash
-python3 -m unittest discover -s tests     # 30 tests, no Hermes needed
+python3 -m unittest discover -s tests     # 41 tests, no Hermes needed (backend tests skip without fastapi)
+~/.hermes/hermes-agent/venv/bin/python -m unittest discover -s tests   # also runs the Desktop backend tests
 python3 hermes_inbox.py                   # runs without Hermes's CLI
 ```
 
@@ -141,3 +142,13 @@ The page harness is `harness/index.html`, using a mock of `@hermes/plugin-sdk`.
 ## License
 
 MIT
+
+## How it talks to Hermes
+
+The Desktop page asks the plugin's own backend, `dashboard/plugin_api.py`, which Hermes mounts at `/api/plugins/hermes-agent-inbox/` once the plugin is in `plugins.enabled`. If that backend isn't mounted (for example, the plugin is enabled in a different profile from the one Desktop's gateway runs as), the page falls back to `hermes inbox --json` through Desktop. Both use the same reader; nothing to set up by hand.
+
+## Troubleshooting
+
+- **"Could not read the inbox".** Run `hermes plugins enable hermes-agent-inbox` (add `-p <bot>` for the profile Desktop uses), then restart Hermes Desktop or press **Rescan** in Capabilities → Plugins.
+- **The page isn't in Capabilities → Plugins.** Restart Hermes Desktop or press **Rescan**; Desktop copies the page from `plugins/hermes-agent-inbox/desktop/` itself.
+- **A console line says "backend REST unavailable".** The page is using the CLI fallback. It works, but busy inboxes may be trimmed and updates arrive every 5 minutes instead of within 30 seconds. Enabling the plugin in Desktop's gateway profile (usually `default`) switches it to the backend.

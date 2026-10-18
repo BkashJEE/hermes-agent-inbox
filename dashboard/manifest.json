@@ -1,0 +1,8 @@
+{
+  "name": "hermes-agent-inbox",
+  "label": "Inbox",
+  "description": "Backend for the Inbox page in Hermes Desktop: read what your Bots are waiting on, mark done or snooze, re-run a failed cron.",
+  "version": "0.6.0",
+  "api": "plugin_api.py",
+  "tab": { "hidden": true }
+}

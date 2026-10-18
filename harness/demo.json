@@ -6,7 +6,7 @@
    "source": "sessions",
    "priority": "now",
    "title": "Scout needs sign-in",
-   "detail": "\u201cDaily competitor scan \u00b7 Oct 15 08:00\u201d  (also 2 earlier times)",
+   "detail": "“Daily competitor scan · Oct 15 08:00”  (also 2 earlier times)",
    "ago": 2400,
    "why": "Its last reply asked you to sign in somewhere. It can't go on until you do. It's a recurring job, so this will keep happening until it's fixed.",
    "facts": [
@@ -49,7 +49,7 @@
    "source": "crons",
    "priority": "now",
    "title": "Cron failed: nightly-backup",
-   "detail": "default \u00b7 rsync: connection timed out",
+   "detail": "default · rsync: connection timed out",
    "ago": 21600,
    "why": "Failed 2 time(s) in a row. Last error: rsync: connection timed out",
    "facts": [
@@ -72,7 +72,11 @@
     "value": "hermes -p default cron runs backup"
    },
    "app": "hermes",
-   "agent": "Atlas"
+   "agent": "Atlas",
+   "cron": {
+    "profile": "scout",
+    "id": "demo-job"
+   }
   },
   {
    "id": "keys:openrouter:a1:benched",
@@ -87,7 +91,14 @@
     "value": "hermes -p atlas auth reset openrouter a1"
    },
    "app": "hermes",
-   "agent": "atlas +2"
+   "agent": "atlas +2",
+   "more": [
+    {
+     "kind": "open",
+     "label": "Open Key Doctor",
+     "value": "/keys"
+    }
+   ]
   },
   {
    "id": "vitals:ledger:vision",
@@ -100,7 +111,7 @@
    "facts": [
     [
      "Seen in",
-     "errors.log \u00b7 tools.vision_tools"
+     "errors.log · tools.vision_tools"
     ],
     [
      "Count",
@@ -125,7 +136,7 @@
    "app": "claude",
    "priority": "today",
    "title": "Claude asked you a question",
-   "detail": "\u201cRefactor the billing worker\u201d",
+   "detail": "“Refactor the billing worker”",
    "ago": 3000,
    "agent": "Claude Code",
    "why": "It ended on a question and nobody has replied since.",
@@ -163,7 +174,7 @@
    "app": "codex",
    "priority": "today",
    "title": "Codex asked you to check",
-   "detail": "\u201cRelease notes for 2.4\u201d",
+   "detail": "“Release notes for 2.4”",
    "ago": 7200,
    "agent": "Codex",
    "why": "It ended by asking you to check, confirm or approve something.",
@@ -227,7 +238,7 @@
    "source": "sessions",
    "priority": "today",
    "title": "Atlas asked you a question",
-   "detail": "\u201cPlan next week's releases\u201d",
+   "detail": "“Plan next week's releases”",
    "ago": 10800,
    "why": "It ended on a question and you haven't opened the chat since.",
    "facts": [
@@ -276,7 +287,7 @@
    "source": "sessions",
    "priority": "today",
    "title": "Ledger hit a limit",
-   "detail": "\u201cReconcile September invoices\u201d",
+   "detail": "“Reconcile September invoices”",
    "ago": 32400,
    "why": "It ran out of turns, time or budget before finishing.",
    "facts": [
