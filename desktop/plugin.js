@@ -59,6 +59,8 @@ async function viaCli(args) {
 // ── backend: REST (dashboard/plugin_api.py) first, the CLI as fallback ──────
 let pluginCtx = null           // set in register(); ctx.rest is this plugin's own REST namespace
 let backend = null             // 'rest' | 'cli', once one has answered
+let cliFallbackSince = 0       // when backend === 'cli': the call that latched it, so REST gets another chance later
+const CLI_FALLBACK_RETRY_MS = 5 * 60000   // latched on the CLI: give the REST backend one more shot this often
 const REST_TIMEOUT_MS = 150000
 const restAvailable = () => !!(pluginCtx && typeof pluginCtx.rest === 'function')
 function viaRest(args) {
@@ -77,8 +79,13 @@ function viaRest(args) {
   if (cmd === 'run-cron') return post('/run-cron', { profile: tail[0], id: tail[1] })
   throw new Error(`no REST route for ${cmd}`)
 }
+// A fallback that never latches forever: on headless boxes `hermes serve` may mount this plugin's
+// REST routes *after* the pane first runs (e.g. the serve started with the plugin not yet installed)
+// — a single early REST failure then used to strand the pane on the CLI for the whole Desktop
+// session, silently dropping the 30-second freshness stamp and re-applying the CLI's 48 KB output
+// cap. While latched on the CLI we give REST one more chance every CLI_FALLBACK_RETRY_MS.
 async function runInbox(args) {
-  if (backend !== 'cli' && restAvailable()) {
+  if (restAvailable() && (backend !== 'cli' || Date.now() - cliFallbackSince >= CLI_FALLBACK_RETRY_MS)) {
     try {
       const r = await viaRest(args)
       backend = 'rest'
@@ -86,9 +93,11 @@ async function runInbox(args) {
       return r
     } catch (e) {
       if (backend === 'rest') throw e   // the backend answered before, so this is a real failure
-      console.error(`[hermes-agent-inbox] backend REST unavailable (${String((e && e.message) || e)}); using the CLI`)
+      console.error(`[hermes-agent-inbox] backend REST unavailable (${String((e && e.message) || e)}); using the CLI${backend === 'cli' ? '; will retry REST in five minutes' : ''}`)
+      if (backend === 'cli') cliFallbackSince = Date.now()   // the retry missed too — wait another full window
     }
   }
+  if (backend !== 'cli') cliFallbackSince = Date.now()
   const r = await viaCli(args)
   backend = 'cli'
   return r
