@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **The pane no longer sticks on the CLI fallback.** A single early REST failure (for example a headless `hermes serve` that was started before the plugin was enabled, so its route mounts only on a later restart) used to permanently latch the page on `backend = 'cli'` for the rest of the Desktop session: one `backend REST unavailable` console line, then no more REST attempts at all — losing the 30-second freshness stamp and silently applying the CLI's 48 KB output cap. While latched, the page now gives the REST backend one more chance every 5 minutes and switches back (`backend = 'rest'`) as soon as it answers. The normal REST-first fast path is unchanged.
+
 ## 0.6.0 — 2026-10-17
 - **Backend ships with the plugin.** `dashboard/plugin_api.py` gives the Desktop page its own REST namespace (`/list`, `/stamp`, `/done`, `/snooze`, `/set`, `/run-cron`). The page uses it first and falls back to `hermes inbox --json` only when it isn't mounted. Nothing has to be written by hand.
 - **No more trimmed lists.** Over REST there's no 48,000-character output cap, so a busy inbox shows every card (the CLI fallback still trims, and says so).
