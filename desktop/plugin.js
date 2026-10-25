@@ -229,7 +229,7 @@ function ago(ts) {
 // ── pieces ──────────────────────────────────────────────────────────────────
 // Card look follows the Skills Library page: fixed header, its own scroll area, a grid of flash cards.
 const CSS = `
-.hin{height:100%;display:flex;flex-direction:column;overflow:hidden;min-height:0;container-type:inline-size;color:var(--ui-text-primary,#eeedf2);background:var(--background,#141419);font:14px/1.55 system-ui,sans-serif;box-sizing:border-box}
+.hin{--ui-text-primary:var(--foreground,#eeedf2);--ui-text-secondary:color-mix(in srgb,var(--foreground,#eeedf2) 72%,var(--muted-foreground,#a6a4b0));--ui-text-tertiary:color-mix(in srgb,var(--foreground,#eeedf2) 58%,var(--muted-foreground,#a6a4b0));--ui-text-quaternary:color-mix(in srgb,var(--muted-foreground,#a6a4b0) 70%,transparent);--ui-stroke-primary:var(--border,#64616f);--ui-stroke-tertiary:color-mix(in srgb,var(--border,#34343b) 70%,transparent);--ui-stroke-quaternary:color-mix(in srgb,var(--border,#34343b) 50%,transparent);--ui-bg-quaternary:color-mix(in srgb,var(--muted-foreground,#24242b) 15%,transparent);--ui-bg-tertiary:color-mix(in srgb,var(--muted-foreground,#0d1117) 12%,transparent);--chrome-action-hover:color-mix(in srgb,var(--muted-foreground,#303038) 18%,transparent);height:100%;display:flex;flex-direction:column;overflow:hidden;min-height:0;container-type:inline-size;color:var(--ui-text-primary,#eeedf2);background:var(--background,#141419);font:14px/1.55 system-ui,sans-serif;box-sizing:border-box}
 .hin *{box-sizing:border-box}
 .hin .head{flex-shrink:0;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:24px clamp(20px,3vw,40px) 14px;border-bottom:1px solid var(--ui-stroke-tertiary,#34343b)}
 .hin h1{font-size:22px;letter-spacing:-.5px;font-weight:600;margin:0}
@@ -247,7 +247,7 @@ const CSS = `
 .hin .lane-title span{font-size:11.5px;color:var(--ui-text-quaternary,#6e7681)}
 .hin .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,210px),1fr));gap:10px}
 @container (min-width:1500px){.hin .grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
-.hin .card{position:relative;display:flex;flex-direction:column;min-width:0;height:116px;padding:8px 10px 6px;border-radius:8px;border:1px solid var(--ui-stroke-quaternary,#2c2b34);border-top:2px solid color-mix(in srgb,var(--a) 65%,var(--card,#1c1c23));background:linear-gradient(155deg,color-mix(in srgb,var(--a) 8%,var(--card,#1c1c23)),var(--card,#1c1c23) 75%);box-shadow:0 3px 10px #0000000a;transition:border-color .15s,transform .15s}
+.hin .card{position:relative;display:flex;flex-direction:column;min-width:0;height:116px;padding:8px 10px 6px;border-radius:8px;border:1px solid var(--ui-stroke-quaternary,#2c2b34);border-top:2px solid color-mix(in srgb,var(--a) 65%,var(--card,var(--background,#141419)));background:linear-gradient(155deg,color-mix(in srgb,var(--a) 8%,var(--card,var(--background,#141419))),var(--card,var(--background,#141419)) 75%);box-shadow:0 3px 10px #0000000a;transition:border-color .15s,transform .15s}
 .hin .card:hover{border-color:var(--ui-stroke-primary,#64616f);transform:translateY(-1px)}
 .hin .card-head{display:flex;gap:8px;align-items:flex-start;min-width:0}
 .hin .icon{display:grid;place-items:center;flex-shrink:0;width:22px;height:22px;border-radius:5px;color:var(--a);background:color-mix(in srgb,var(--a) 13%,transparent);font-size:13px}.hin .icon .codicon{font-size:13px}

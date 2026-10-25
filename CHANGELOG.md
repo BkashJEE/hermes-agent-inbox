@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Fix: the page is now readable in light mode.** The pane's CSS read theme variables the Desktop never injects (`--ui-text-primary`, `--ui-stroke-*`, `--ui-bg-*`), so every text and border colour silently fell back to its hard-coded dark-theme value: pale text on a light `--card` background in the light theme. The pane now defines those `--ui-*` aliases from the variables the Desktop actually provides (`--foreground`, `--muted-foreground`, `--border`, `--card`), so it follows the app theme both ways and keeps the old values as fallback for older builds.
+
+- **Fix: cards read the theme instead of a dark literal on the surface.** Plugin panes do not receive `--card` from the Desktop (only the chat preview frame does), so the card surface also sat on its hard-coded dark fallback even with the text fixed — dark-gray text on a near-black card. The card surface now chains through `--background` (which panes *do* receive) before the dark literal: light mode gets a near-white card with the same subtle accent tint; dark mode is pixel-identical.
+
 - **The pane no longer sticks on the CLI fallback.** A single early REST failure (for example a headless `hermes serve` that was started before the plugin was enabled, so its route mounts only on a later restart) used to permanently latch the page on `backend = 'cli'` for the rest of the Desktop session: one `backend REST unavailable` console line, then no more REST attempts at all — losing the 30-second freshness stamp and silently applying the CLI's 48 KB output cap. While latched, the page now gives the REST backend one more chance every 5 minutes and switches back (`backend = 'rest'`) as soon as it answers. The normal REST-first fast path is unchanged.
 
 ## 0.6.0 — 2026-10-17
