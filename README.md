@@ -2,6 +2,8 @@
 
 **Everything your Hermes Bots and tools are waiting on you for, in one list.**
 
+Works on **Linux, macOS and Windows** (tested on every change with Python 3.11–3.13). The PR source needs the [GitHub CLI](https://cli.github.com/) signed in; everything else needs only Hermes.
+
 ![Hermes Agent Inbox in Hermes Desktop: Now, Today and Later flash cards](docs/hero.png)
 
 You run several Bots, cron jobs and background tasks. When one of them needs you, the signal is scattered:

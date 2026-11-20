@@ -237,3 +237,34 @@ class Time(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RemoveCardStaysInInbox(unittest.TestCase):
+    """Issue #3: Done on a card must never delete a file outside ~/.hermes/inbox/."""
+
+    def setUp(self):
+        import tempfile
+        self.tmp = Path(tempfile.mkdtemp())
+        self.old = h.FILED
+        h.FILED = self.tmp / "inbox"
+        h.FILED.mkdir()
+        (self.tmp / "secret.json").write_text("{}")
+        (h.FILED / "real-card.json").write_text("{}")
+
+    def tearDown(self):
+        h.FILED = self.old
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_traversal_ids_are_refused(self):
+        for bad in ("filed:../secret", "filed:..", "filed:.", "filed:a/b", "filed:a\\\\b", "filed:", "filed:" + "x" * 81):
+            self.assertFalse(h.remove_card(bad), bad)
+        self.assertTrue((self.tmp / "secret.json").exists())
+
+    def test_real_card_is_removed(self):
+        self.assertTrue(h.remove_card("filed:real-card"))
+        self.assertFalse((h.FILED / "real-card.json").exists())
+
+    def test_card_written_by_file_card_can_be_removed(self):
+        out = h.file_card("Approve the newsletter", sender="Scout")
+        self.assertTrue(h.remove_card(out["id"]))
