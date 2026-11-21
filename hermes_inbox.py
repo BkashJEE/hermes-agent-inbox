@@ -719,12 +719,24 @@ def demo(on: bool) -> dict:
     return {"ok": True, "demo": "off", "removed": removed}
 
 
+CARD_KEY = re.compile(r"[a-zA-Z0-9_.-]{1,80}")  # the only names file_card() ever writes
+
+
 def remove_card(item_id: str) -> bool:
-    """Done on a filed card deletes its file, so the sender can post it again later."""
+    """Done on a filed card deletes its file, so the sender can post it again later.
+    Only a plain card name inside ~/.hermes/inbox/ is ever deleted: no folders, no "..", no other paths (issue #3)."""
     if not item_id.startswith("filed:"):
         return False
-    f = FILED / f"{item_id[6:]}.json"
-    if f.exists():
+    key = item_id[6:]
+    if not CARD_KEY.fullmatch(key) or set(key) == {"."}:
+        return False
+    f = FILED / f"{key}.json"
+    try:
+        if f.resolve().parent != FILED.resolve():
+            return False
+    except OSError:
+        return False
+    if f.is_file():
         f.unlink()
         return True
     return False
